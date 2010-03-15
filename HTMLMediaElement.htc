@@ -1,0 +1,87 @@
+/* The MIT License
+ * 
+ * Copyright (c) 2010 Nathan Rajlich
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+<PUBLIC:COMPONENT NAME="HTMLMediaElement">
+
+    <PUBLIC:PROPERTY NAME="readyState" GET="readyStateGet" />
+
+    <PUBLIC:EVENT NAME="onloadstart" ID="onloadstart" />
+    <PUBLIC:EVENT NAME="onprogress" ID="onprogress" />
+    <PUBLIC:EVENT NAME="onsuspend" ID="onsuspend" />
+    <PUBLIC:EVENT NAME="onabort" ID="onabort" />
+    <PUBLIC:EVENT NAME="onerror" ID="onerror" />
+    <PUBLIC:EVENT NAME="onemptied" ID="onemptied" />
+    <PUBLIC:EVENT NAME="onstalled" ID="onstalled" />
+    <PUBLIC:EVENT NAME="onplay" ID="onplay" />
+    <PUBLIC:EVENT NAME="onpause" ID="onpause" />
+    <PUBLIC:EVENT NAME="onloadedmetadata" ID="onloadedmetadata" />
+    <PUBLIC:EVENT NAME="onloadeddata" ID="onloadeddata" />
+    <PUBLIC:EVENT NAME="onwaiting" ID="onwaiting" />
+    <PUBLIC:EVENT NAME="onplaying" ID="onplaying" />
+    <PUBLIC:EVENT NAME="oncanplay" ID="oncanplay" />
+    <PUBLIC:EVENT NAME="oncanplaythrough" ID="oncanplaythrough" />
+    <PUBLIC:EVENT NAME="onseeking" ID="onseeking" />
+    <PUBLIC:EVENT NAME="onseeked" ID="onseeked" />
+    <PUBLIC:EVENT NAME="ontimeupdate" ID="ontimeupdate" />
+    <PUBLIC:EVENT NAME="onended" ID="onended" />
+    <PUBLIC:EVENT NAME="onratechange" ID="onratechange" />
+    <PUBLIC:EVENT NAME="ondurationchange" ID="ondurationchange" />
+    <PUBLIC:EVENT NAME="onvolumechange" ID="onvolumechange" />
+    
+    <PUBLIC:METHOD NAME="__fireMediaEvent" />
+    <SCRIPT LANGUAGE="JScript" >
+      	var ev, events = {
+      	    "loadstart":onloadstart,
+            "progress":onprogress,
+            "suspend":onsuspend,
+            "abort":onabort,
+            "error":onerror,
+            "emptied":onemptied,
+            "stalled":onstalled,
+            "play":onplay,
+            "pause":onpause,
+            "loadedmetadata":onloadedmetadata,
+            "loadeddata":onloadeddata,
+            "waiting":onwaiting,
+            "playing":onplaying,
+            "canplay":oncanplay,
+            "canplaythrough":oncanplaythrough,
+            "seeking":onseeking,
+            "seeked":onseeked,
+            "timeupdate":ontimeupdate,
+            "ended":onended,
+            "ratechange":onratechange,
+            "durationchange":ondurationchange,
+            "volumechange":onvolumechange
+      	};
+      	function readyStateGet() {
+      	    return this.__readyState;
+      	}
+        function __fireMediaEvent(eventName)
+      	{
+      	    if (eventName in events) {
+      	        ev = createEventObject();
+      	        events[eventName].fire(ev);
+      	    }
+        }
+    </SCRIPT>
+</PUBLIC:COMPONENT>

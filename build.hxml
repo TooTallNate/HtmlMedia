@@ -1,0 +1,4 @@
+-cp src
+-main HtmlAudio
+-swf-version 10
+-swf9 HtmlAudio.swf
