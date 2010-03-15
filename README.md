@@ -1,22 +1,22 @@
-HtmlMediaFallback
-=================
+HtmlMedia
+=========
 
 Presenting the first and only "proper"
-[HTML5 <audio> and <video>](http://www.w3.org/TR/html5/video.html) fallback
-implementation: `HtmlMediaFallback`
+[HTML5 &lt;audio&gt; and &lt;video&gt;](http://www.w3.org/TR/html5/video.html) fallback
+implementation: `HtmlMedia`
 
 There are a few open-source HTML5 Video and Audio fallbacks that depend on
 Flash out there, but in-short, all were too heavy-weight AND not complete
 enough for my needs.
 
-`HtmlMediaFallback` was created with the term "progressive enhancement" in
+`HtmlMedia` was created with the term "progressive enhancement" in
 mind. The sad truth is that HTML5 isn't even finalized yet. None of the
 current browser's implementations have a uniform codec support, and Internet
 Explorer doesn't support it at all! This script aims to provide an
-implementation of the HTML5 media API, with a uniform, cross-browser codec
+implementation of the HTML5 media API, with a uniform, cross-browser codec set
 support via Flash, upgrading the browser's current implementation if one exists.
 
-The `HtmlMediaFallback` script should:
+The `HtmlMedia` script should:
 
  * If no HTML5 media support is detected, implement the interfaces related to
    the <audio> and <video> element (HTMLMediaElement, HTMLAudioElement, etc.)
@@ -58,9 +58,9 @@ implementation, then those are obviously still supported as well.
 How to Use
 ----------
 
-`HtmlMediaFallback` was designed to be a drop-in enhancement, with little
+`HtmlMedia` was designed to be a drop-in enhancement, with little
 or no configuration required by the developer. Here's a minimal HTML file,
-with guaranteed HTML5 media support via `HtmlMediaFallback`:
+with guaranteed HTML5 media support via `HtmlMedia`:
 
     <!DOCTYPE html>
     <html>
@@ -93,7 +93,7 @@ or
     setTimeout("a.pause()", 1000);
         // pause the sound in 1 second
     
-You now have full access to the [HTML5 <audio> and <video>](http://www.w3.org/TR/html5/video.html)
+You now have full access to the [HTML5 &lt;audio&gt; and &lt;video&gt;](http://www.w3.org/TR/html5/video.html)
 API on your webpage, with a guaranteed codec set, and an implementation for
 old/non-supporting browsers.
 
