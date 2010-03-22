@@ -42,9 +42,10 @@ class HtmlAudio {
      *      matched in the HTMLAudioElement.__swfSounds Array in JavaScript.
      */
     public static function createSound(src:String, volume:Float) {
-        var a : HTMLAudioElement = new HTMLAudioElement(src, volume);
+        var fallbackId : Int = sounds.length;
+        var a : HTMLAudioElement = new HTMLAudioElement(fallbackId, src, volume);
         sounds.push(a);
-        return sounds.length-1; // Return the index of the new Sound in the array
+        return fallbackId; // Return the index of the new Sound in the array
     }
     
     // ExternalInterface functions available to JavaScript
@@ -68,16 +69,27 @@ class HtmlAudio {
         sound.setVolume(volume);
     }
     
-    // Sound Event Handlers
+    public static function getCurrentTime(index:Int) {
+        return sounds[index].getCurrentTime();
+    }
     
+    public static function setCurrentTime(index:Int, time:Float) {
+        sounds[index].setCurrentTime(time);
+    }
     
+
+
+
+
     public static function main() {
         ExternalInterface.addCallback("IS_AUDIO_BRIDGE", IS_AUDIO_BRIDGE);
         ExternalInterface.addCallback("__createSound", createSound);
         ExternalInterface.addCallback("__load", load);
         ExternalInterface.addCallback("__play", play);
         ExternalInterface.addCallback("__pause", pause);
-        ExternalInterface.addCallback("__setVolume", setVolume);        
+        ExternalInterface.addCallback("__setVolume", setVolume);
+        ExternalInterface.addCallback("__getCurrentTime", getCurrentTime);
+        ExternalInterface.addCallback("__setCurrentTime", setCurrentTime);
         ExternalInterface.call([
         "(function(){",
             "var f = function(tag){",

@@ -27,12 +27,14 @@ import flash.media.SoundTransform;
 import flash.net.URLRequest;
 
 class HTMLAudioElement {
+    private var fallbackId: Int;
     private var sound : Sound;
     private var channel : SoundChannel;
     private var volume : Float;
     private var lastPosition : Float;
     
-    public function new(src:String, volume:Float) {
+    public function new(fallbackId:Int, src:String, volume:Float) {
+        this.fallbackId = fallbackId;
         this.volume = volume;
         this.lastPosition = 0;
         this.sound = new Sound();
@@ -52,20 +54,54 @@ class HTMLAudioElement {
     }
     
     public function load(src:String) {
+        if (this.channel != null)
+            this.pause();
+        if(this.sound.bytesLoaded < this.sound.bytesTotal)
+            this.sound.close();
         this.sound.load(new URLRequest(src));        
     }
     
     public function play() {
         this.channel = this.sound.play(this.lastPosition, 0, new SoundTransform(this.volume, 0));
+        this.channel.addEventListener("soundComplete", this.channelComplete);
     }
     
     public function pause() {
         if (this.channel != null) {
-            this.lastPosition = this.channel.position;
+            this.channel.removeEventListener("soundComplete", this.channelComplete);
             this.channel.stop();
+            this.lastPosition = this.channel.position;
+            this.channel = null;
         }
     }
     
+    public function getCurrentTime() {
+        return (this.channel == null ? this.lastPosition : this.channel.position)/1000;
+    }
+    
+    public function setCurrentTime(time:Float) {
+        var isPlaying : Bool = false;
+        if (this.channel != null) {
+            this.pause();
+            isPlaying = true;
+        }
+        this.lastPosition = time*1000;
+        if (isPlaying)
+            this.play();
+    }
+    
+    private function channelComplete(e) {
+        this.channel.removeEventListener("soundComplete", this.channelComplete);
+        this.channel = null;
+        var loop : Bool = ExternalInterface.call("(function() { return HTMLAudioElement.__swfSounds["+this.fallbackId+"].loop; })");
+        if (loop) {
+            ExternalInterface.call("(function() { "+
+                "var a = HTMLAudioElement.__swfSounds["+this.fallbackId+"]; "+
+                "a.currentTime = a.startTime; a.play(); })");
+        } else {
+            ExternalInterface.call("HTMLAudioElement.__swfSounds["+this.fallbackId+"].__fireMediaEvent", "ended");
+        }
+    }
     
     ///////////////////  Event Handlers  ///////////////////
     private static function soundComplete(e) {

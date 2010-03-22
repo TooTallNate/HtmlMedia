@@ -22,7 +22,20 @@
  */
 <PUBLIC:COMPONENT NAME="HTMLMediaElement">
 
+    <PUBLIC:PROPERTY NAME="error" GET="errorGet" />
+    <PUBLIC:PROPERTY NAME="src" GET="srcGet" PUT="srcSet" />
+    <PUBLIC:PROPERTY NAME="currentSrc" GET="currentSrcGet" />
     <PUBLIC:PROPERTY NAME="readyState" GET="readyStateGet" />
+    <PUBLIC:PROPERTY NAME="seeking" GET="seekingGet" />
+    <PUBLIC:PROPERTY NAME="currentTime" GET="currentTimeGet" PUT="currentTimeSet" />
+    <PUBLIC:PROPERTY NAME="startTime" GET="startTimeGet" />
+    <PUBLIC:PROPERTY NAME="duration" GET="durationGet" />
+    <PUBLIC:PROPERTY NAME="paused" GET="pausedGet" />
+    <PUBLIC:PROPERTY NAME="ended" GET="endedGet" />
+    <PUBLIC:PROPERTY NAME="controls" GET="controlsGet" PUT="controlsSet" />
+    <PUBLIC:PROPERTY NAME="volume" GET="volumeGet" PUT="volumeSet" />
+    <PUBLIC:PROPERTY NAME="muted" GET="mutedGet" PUT="mutedSet" />
+    
 
     <PUBLIC:EVENT NAME="onloadstart" ID="onloadstart" />
     <PUBLIC:EVENT NAME="onprogress" ID="onprogress" />
@@ -48,6 +61,8 @@
     <PUBLIC:EVENT NAME="onvolumechange" ID="onvolumechange" />
     
     <PUBLIC:METHOD NAME="__fireMediaEvent" />
+    <PUBLIC:METHOD NAME="__initialize" />
+    
     <SCRIPT LANGUAGE="JScript" >
       	var ev, events = {
       	    "loadstart":onloadstart,
@@ -72,16 +87,75 @@
             "ratechange":onratechange,
             "durationchange":ondurationchange,
             "volumechange":onvolumechange
-      	};
-      	function readyStateGet() {
-      	    return this.__readyState;
-      	}
-        function __fireMediaEvent(eventName)
-      	{
-      	    if (eventName in events) {
-      	        ev = createEventObject();
-      	        events[eventName].fire(ev);
+      	},
+      	initialProps = {};
+      	
+      	function errorGet() { return this.__errorGet(); }
+        function srcGet() { return this.__srcGet(); }
+        function currentSrcGet() { return this.__currentSrcGet(); }
+      	function readyStateGet() { return this.__readyStateGet(); }
+      	function seekingGet() { return this.__seekingGet(); }
+      	function currentTimeGet() { return this.__currentTimeGet(); }
+      	function startTimeGet() { return this.__startTimeGet(); }
+      	function durationGet() { return this.__durationGet(); }
+      	function pausedGet() { return this.__pausedGet(); }
+      	function endedGet() { return this.__endedGet(); }
+      	function controlsGet() { return this.__controlsGet(); }
+      	function volumeGet() { return this.__volumeGet(); }
+      	function mutedGet() { return this.__mutedGet(); }
+
+      	function srcSet(v) {
+      	    if (this.__srcSet) {
+      	        this.__srcSet(v);
+      	    } else {
+      	        initialProps.src = v;
       	    }
+  	    }
+      	function currentTimeSet(v) {
+      	    if (this.__currentTimeSet) {
+      	        this.__currentTimeSet(v);
+      	    } else {
+      	        initialProps.currentTime = v;
+      	    }
+  	    }
+      	function controlsSet(v) {
+      	    if (this.__controlsSet) {
+      	        this.__controlsSet(v);
+      	    } else {
+      	        initialProps.controls = v;
+      	    }
+  	    }
+      	function volumeSet(v) {
+      	    if (this.__volumeSet) {
+      	        this.__volumeSet(v);
+      	    } else {
+      	        initialProps.volume = v;
+      	    }
+  	    }
+      	function mutedSet(v) {
+      	    if (this.__mutedSet) {
+      	        this.__mutedSet(v);
+      	    } else {
+      	        initialProps.muted = v;
+      	    }
+  	    }
+      	
+  	    // Cloned nodes, or nodes already inserted in the DOM before creating
+  	    // (i.e. is in original HTML), attempt to set props prematurely, this
+  	    // ensures props are properly added after the 'setter' functions.
+  	    function __initialize() {
+  	        for (var i in initialProps) {
+  	            this[i] = initialProps[i];
+  	        }
+  	    }
+  	    
+        // Dispatches an HTML5 media event at the element.
+        function __fireMediaEvent(eventName)
+        {
+            if (eventName in events) {
+                ev = createEventObject();
+                events[eventName].fire(ev);
+            }
         }
     </SCRIPT>
 </PUBLIC:COMPONENT>
