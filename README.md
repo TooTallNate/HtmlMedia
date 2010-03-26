@@ -15,17 +15,17 @@ in mind. The sad truth is that HTML5 isn't even finalized yet. None of the
 current browser's implementations have a uniform codec support, and Internet
 Explorer doesn't yet support it at all! This library aims to provide an
 implementation of the HTML5 media API, with a uniform, cross-browser codec set
-support via Flash, upgrading the browser's current implementation if one exists.
+support via Flash, enhancing the browser's current implementation if one exists.
 
 The `HtmlMedia` library should:
 
  * If no HTML5 media support is detected, implement the interfaces related to
-   the &lt;audio&gt; and &lt;video&gt; element (HTMLMediaElement, HTMLAudioElement, etc.)
-   via standard JavaScript, and provide MP3 playback support via the Flash
+   the &lt;audio&gt; and &lt;video&gt; element (HTMLMediaElement, HTMLAudioElement,
+   etc.) via standard JavaScript, and provide playback support via the Flash
    fallback.
 
  * If some level of HTML5 media is supported, but MP3 playback is not
-   (Firefox 3.5+, Opera 10.5), then `HtmlMedia` should augment the native
+   (Firefox 3.5+, Opera 10.1), then `HtmlMedia` should augment the native
    implementation to support the codecs provided from the Flash fallback
    *transparently*.
 
@@ -74,10 +74,13 @@ with guaranteed HTML5 media support via `HtmlMedia`:
     </body>
     </html>
 
-You essentially need to include SWFObject 2+ and the `HtmlMedia.js` file.
-That's it! Optionally you can set the path to the SWF files.`HtmlMedia` does
-not directly depend on any external libraries, but it is designed to work fine
-with popular JavaScript frameworks like `Prototype`.
+You essentially need to copy the `HtmlAudio.swf`, `HtmlVideo.swf`,
+`HTMLMediaElement.htc`, `swfobject.js` and the `HtmlMedia.js` files to
+somewhere on your web server. On any page that you want to use HTML5 audio
+or video, just include the `HtmlMedia.js` script which will do the rest.
+Optionally you can set the path to the SWF files. `HtmlMedia` does
+not directly depend on any external libraries, but it is designed to work alongside
+popular JavaScript frameworks like [Prototype](http://www.prototypejs.org).
 
 Once the `HtmlMedia.js` file finishes loading you have access to the entire
 HTML5 audio and video API on your HTML page **AND** via JavaScript.
@@ -102,31 +105,40 @@ You now have full access to the
 API on your webpage, with a guaranteed codec set, and an implementation for
 old/non-supporting browsers!
 
+If you would like some more tutorials on how to use the HTML5 Audio and Video
+API, I highly recommend reading any of the browser vendors' articles on the matter:
+
+* [Mozilla's "Using audio and video (in Firefox)"](https://developer.mozilla.org/En/Using_audio_and_video_in_Firefox)
+* [Opera's "Everything you need to know about HTML5 video and audio"](http://my.opera.com/core/blog/2010/03/03/everything-you-need-to-know-about-html5-video-and-audio-2)
+* [Apple's "Safari Guide to HTML5 Audio and Video"](https://developer.mozilla.org/En/Using_audio_and_video_in_Firefox)
+* Is there a Google one anywhere?
+
+
 Known Limitations
 -----------------
 
 I'm proud to say that the limitations brought on by this library are very
 minimal, and in most cases, you wouldn't even know about them:
 
- * For IE to fire it's media events, or for the `onproperychange` event to be
-   called (used internally), the media element must be inserted somewhere in
-   the DOM. &lt;audio&gt; nodes are appended to the &lt;head&gt; automatically
-   during creation (so you don't really need to think about it). &lt;video&gt;
-   nodes are obviously going to be appended to the DOM by you anyway, just
-   make sure to do that before attaching event handlers or changing setter
-   properties like `volume`.
-
- * innerHTML - DO NOT create &lt;audio&gt;, &lt;video&gt; or &lt;source&gt;
+ * innerHTML - DO NOT create `&lt;audio&gt;`, `&lt;video&gt;` or `&lt;source&gt;`
    nodes via setting a parent element's `innerHTML` property. The newly created
-   nodes are not guaranteed to be properly extended with the HTML5 API and
-   fallback if they are created this way. You can insert said nodes either via
+   nodes are will not be properly extended with the HTML5 API and fallback if
+   they are created this way. You can insert said nodes either via
    the initial HTML source, or dynamically via `document.createElement`.
 
- * It's not possible (as far as I know) to overwrite the functionality of the
-   built-in browser `controls` for media elements, so in the case where HTML5
-   media is already supported, and only codec support is being added, the
-   native controls will not be usable by the fallback codecs (though all
-   media events to build your own UI do fire, and that is always recommended).
+ * It's not possible to overwrite the functionality of the built-in browser
+   `controls` for media elements. Furthermore, `HtmlMedia` has no plans on
+   implementing the attribute. For these reasons, it is not recommended to use
+   the `controls` attribute at all. However, all media events to build your own
+   user interface do fire, and that is always recommended!
+
+ * Currently, upgrading native `&lt;audio&gt;` and `&lt;video&gt;` nodes to use
+   the Flash fallback is a destructive process. In other words, if `HTMLMediaElement#load`
+   is called and `src` is a file where the Flash fallback needs to be used, then
+   that media element is "converted" to a "fallback node" and can only be used to
+   play files supported by the fallback, and native playback is removed from that
+   element. Just don't be reusing media elements if you're jumping between multiple
+   file formats constantly is all, create new ones.
 
 License
 -------
