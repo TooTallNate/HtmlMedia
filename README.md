@@ -29,8 +29,9 @@ The `HtmlMedia` library should:
    implementation to support the codecs provided from the Flash fallback
    *transparently*.
 
- * If HTML5 media is supported AND MP3 playback is natively supported
-   (Google Chrome), then this library should detect so and do nothing.
+ * If HTML5 media is supported AND all the codecs that the fallback supports
+   are also supported by the browser (not likely, consider `flv` video files),
+   then this library should detect so and do nothing.
 
 Ultimately, this gives the web developer access to the HTML5 Audio and Video
 API on all browsers with Flash installed (~98%), with **AT LEAST** the codecs
@@ -120,7 +121,7 @@ Known Limitations
 I'm proud to say that the limitations brought on by this library are very
 minimal, and in most cases, you wouldn't even know about them:
 
- * innerHTML - DO NOT create `&lt;audio&gt;`, `&lt;video&gt;` or `&lt;source&gt;`
+ * innerHTML - DO NOT create `<audio>`, `<video>` or `<source>`
    nodes via setting a parent element's `innerHTML` property. The newly created
    nodes are will not be properly extended with the HTML5 API and fallback if
    they are created this way. You can insert said nodes either via
@@ -132,7 +133,7 @@ minimal, and in most cases, you wouldn't even know about them:
    the `controls` attribute at all. However, all media events to build your own
    user interface do fire, and that is always recommended!
 
- * Currently, upgrading native `&lt;audio&gt;` and `&lt;video&gt;` nodes to use
+ * Currently, upgrading native `<audio>` and `<video>` nodes to use
    the Flash fallback is a destructive process. In other words, if `HTMLMediaElement#load`
    is called and `src` is a file where the Flash fallback needs to be used, then
    that media element is "converted" to a "fallback node" and can only be used to

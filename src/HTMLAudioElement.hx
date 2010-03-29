@@ -25,6 +25,7 @@ import flash.media.Sound;
 import flash.media.SoundChannel;
 import flash.media.SoundTransform;
 import flash.net.URLRequest;
+import haxe.Timer;
 
 class HTMLAudioElement {
     private var fallbackId: Int;
@@ -32,11 +33,13 @@ class HTMLAudioElement {
     private var channel : SoundChannel;
     private var volume : Float;
     private var lastPosition : Float;
+    private var lastProgressEvent : Float;
+    private var playTimer : Timer;
     
     public function new(fallbackId:Int, src:String, volume:Float) {
         this.fallbackId = fallbackId;
         this.volume = volume;
-        this.lastPosition = 0;
+        this.lastPosition = this.lastProgressEvent = 0;
         this.sound = new Sound();
         this.sound.addEventListener("complete", soundComplete);
         this.sound.addEventListener("id3", soundId3);
@@ -64,10 +67,17 @@ class HTMLAudioElement {
     public function play() {
         this.channel = this.sound.play(this.lastPosition, 0, new SoundTransform(this.volume, 0));
         this.channel.addEventListener("soundComplete", this.channelComplete);
+        this.playTimer = new Timer(250);
+        this.playTimer.run = this.sendTimeUpdate;
+    }
+    
+    private function sendTimeUpdate() {
+        ExternalInterface.call("HTMLAudioElement.__swfSounds["+this.fallbackId+"].__fireMediaEvent", "timeupdate");
     }
     
     public function pause() {
         if (this.channel != null) {
+            this.playTimer.stop();
             this.channel.removeEventListener("soundComplete", this.channelComplete);
             this.channel.stop();
             this.lastPosition = this.channel.position;
@@ -91,41 +101,33 @@ class HTMLAudioElement {
     }
     
     private function channelComplete(e) {
-        this.channel.removeEventListener("soundComplete", this.channelComplete);
-        this.channel = null;
-        var loop : Bool = ExternalInterface.call("(function() { return HTMLAudioElement.__swfSounds["+this.fallbackId+"].loop; })");
-        if (loop) {
-            ExternalInterface.call("(function() { "+
-                "var a = HTMLAudioElement.__swfSounds["+this.fallbackId+"]; "+
-                "a.currentTime = a.startTime; a.play(); })");
-        } else {
-            ExternalInterface.call("HTMLAudioElement.__swfSounds["+this.fallbackId+"].__fireMediaEvent", "ended");
-        }
+        //this.channel.removeEventListener("soundComplete", this.channelComplete);
+        //this.channel = null;
+        this.pause();
+        ExternalInterface.call("HTMLAudioElement.__swfSounds["+this.fallbackId+"].__endedCallback");
     }
     
     ///////////////////  Event Handlers  ///////////////////
-    private static function soundComplete(e) {
-        ExternalInterface.call("console.log", e.target + " complete");
-        ExternalInterface.call("console.log", e);
+    private function soundComplete(e) {
+        ExternalInterface.call("HTMLAudioElement.__swfSounds["+this.fallbackId+"].__fireMediaEvent", "progress", this.sound.bytesLoaded, this.sound.bytesTotal);
     }
     
-    private static function soundId3(e) {
-        ExternalInterface.call("console.log", e.target + " id3");
-        ExternalInterface.call("console.log", e);
+    private function soundId3(e) {
     }
     
-    private static function soundIoError(e) {
-        ExternalInterface.call("console.log", e.target + " ioError");
-        ExternalInterface.call("console.log", e);
+    private function soundIoError(e) {
+        this.sound.close();
+        ExternalInterface.call("HTMLAudioElement.__swfSounds["+this.fallbackId+"].__errorCallback");
     }
     
-    private static function soundOpen(e) {
-        ExternalInterface.call("console.log", e.target + " open");
-        ExternalInterface.call("console.log", e);
+    private function soundOpen(e) {
     }
     
-    private static function soundProgress(e) {
-        //ExternalInterface.call("console.log", e.target + " progress");
-        //ExternalInterface.call("console.log", e);
+    private function soundProgress(e) {
+        var now : Float = Date.now().getTime();
+        if (now - this.lastProgressEvent > 350) {            
+            ExternalInterface.call("HTMLAudioElement.__swfSounds["+this.fallbackId+"].__fireMediaEvent", "progress", this.sound.bytesLoaded, this.sound.bytesTotal);
+            this.lastProgressEvent = now;
+        }
     }
 }

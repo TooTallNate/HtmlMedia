@@ -21,13 +21,8 @@
  * THE SOFTWARE.
  */
 (function() {
-    // Feel free to change the paths to appropriate for your environment:
-    var AUDIO_SWF_PATH = "HtmlAudio.swf",
-        VIDEO_SWF_PATH = "HtmlVideo.swf",
-        IE_HTC_PATH    = "HTMLMediaElement.htc",
-
     // Dont modify below here though!
-        REGEXP_FILENAME_MP3 = /\.mp3(\?.*)?$/i,
+    var REGEXP_FILENAME_MP3 = /\.mp3(\?.*)?$/i,
         REGEXP_MIMETYPE_MP3 = /^audio\/(?:x-)?(?:mp(?:eg|3))\s*;?/i,
         REGEXP_MIMETYPE_FLV = /^video\/(?:x-)?(?:flv)\s*;?/i,
         HAS_NATIVE_AUDIO = false,
@@ -118,14 +113,49 @@
             if (!window.MediaError) window.MediaError = MediaError;
 
             // Browsers other than IE will use the W3C events model to fire media events
-            function fireMediaEvent(eventName, bubbles, cancelable) {
+            function fireMediaEvent(eventName) {
                 var ev = document.createEvent("Events"),
                     func = this["on"+eventName];
-                ev.initEvent(eventName, bubbles || false, cancelable || false);
+                ev.initEvent(eventName, false, false);
+                this.__extendEvent.call(this, ev, arguments);
                 this.dispatchEvent(ev);
                 if (typeof func === 'function') {
                     func.call(this, ev);
                 }
+            }
+            
+            function resourceSelectionAlgorithm() {
+                this.__networkState = this.NETWORK_NO_SOURCE;
+                // Asynchronously await a stable state
+                var mode;
+                var candidate;
+                if (this.src) {
+                    mode = "attribute";
+                } else {
+                    var sources = this.getElementsByTagName("source");
+                    for (var i=0; i<sources.length; i++) {
+                        if (sources[i].parentNode === this) {
+                            mode = "children";
+                            candidate = sources[i];
+                        }
+                    }
+                }
+                if (!mode) {
+                    this.__networkState = this.NETWORK_EMPTY;
+                    return; // Abort!
+                }
+                this.__networkState = this.NETWORK_LOADING;
+                this.__fireMediaEvent("timeupdate");
+                
+                if (mode === "attribute") {
+                    
+                } else { // the source elements will be used
+                    
+                }
+            }
+            
+            function resourceFetchAlgorithm(url) {
+                
             }
     
     
@@ -135,14 +165,6 @@
             if (window.HTMLMediaElement) {
             } else {
             
-                if (isIE) {
-                    // For IE to fire custom events and use real getters and setters,
-                    // they must be defined in an HTC file and applied via CSS 'behavior'.
-                    var style = document.createElement("style");
-                    style.type = "text/css";
-                    style.styleSheet.cssText = "audio, video { behavior:url("+IE_HTC_PATH+"); }";
-                    documentHead.appendChild(style);
-                }
                                
                 
                 
@@ -167,6 +189,27 @@
                     if (nodeName === "audio") return new HTMLAudioElement(clone);
                     if (nodeName === "video") return new HTMLVideoElement(clone);
                     //return clone; Should never happen
+                }
+                function setAttribute() {
+                    var attr = arguments[0], value = arguments[1], rtn = this.__setAttribute(attr, value);
+                    switch (attr) {
+                        case "src":
+                            this.src = value;
+                            break;
+                        case "preload":
+                            break;
+                        case "autoplay":
+                            break;
+                        case "loop":
+                            break;
+                        case "controls":
+                            break;
+                    }
+                    return rtn;
+                }
+                function getAttribute() {
+                    var rtn = this.__getAttribute(arguments[0]);
+                    return rtn;
                 }
                 function defineGettersSetters(element) {
                     element.__defineGetter__("error",       element.__errorGet);
@@ -202,7 +245,7 @@
                             element.__fireMediaEvent = fireMediaEvent;
                             defineGettersSetters(element);
                             
-                            // TODO: parse current attributes, add as DOM properties
+                            // http://dev.w3.org/html5/spec-author-view/common-microsyntaxes.html#boolean-attributes
                             var src = element.getAttribute("src"),
                                 preload = element.getAttribute("preload"),
                                 autoplay = element.getAttribute("autoplay"),
@@ -215,6 +258,8 @@
                             if (autoplay) element.autoplay = !!autoplay;
                             if (loop) element.loop = !!loop;
                             if (controls) element.controls = !!controls;
+                            
+                            // Register all the media events from inital element
                             for (; i<l; i++) {
                                 eventName = "on"+MEDIA_EVENTS[i];
                                 eventCode = element.getAttribute(eventName);
@@ -223,16 +268,22 @@
                                 }
                             }
                         } else {
-                            // Once we ensure that the node is appended somewhere in the
-                            // DOM, then we can access the HTC properties and methods.
-                            if (!element.parentNode) documentHead.appendChild(element);
-                            element.__initialize();
+                            // Add the behavior to the element. The element does not
+                            // need to be appended to the document when used with the
+                            // 'addBehavior' method.
+                            element.addBehavior(HTMLMediaElement.htcPath);
                         }
 
                         // The cloneNode function needs to call the appropriate
                         // HTMLMediaElement constructor as well.
                         if (!element.__cloneNode) element.__cloneNode = element.cloneNode;
                         element.cloneNode = cloneNode;
+                        // getAttribute and setAttribute need to look out for
+                        // specific cases (loop, src, etc.)
+                        if (!element.__setAttribute) element.__setAttribute = element.setAttribute;
+                        element.setAttribute = setAttribute;
+                        if (!element.__getAttribute) element.__getAttribute = element.getAttribute;
+                        element.getAttribute = getAttribute;
                     }
                 }
                 HTMLMediaElement.prototype = {
@@ -250,7 +301,6 @@
                             src = RELATIVE_URL_RESOLVER.src;
                         }
                         this.__src = src;
-                        //console.log("src: " + src);
                     },
                     
                     // readonly attribute DOMString currentSrc;
@@ -306,8 +356,13 @@
                             0;
                     },
                     __currentTimeSet: function(time) {
-                        if (this.__fallbackId != undefined)
-                            HTMLAudioElement.__swf.__setCurrentTime(this.__fallbackId, time);
+                        if (this.__readyState === this.HAVE_NOTHING) {
+                            throw new Error("INVALID_STATE_ERR: DOM Exception 11");
+                        }
+                        // TODO: Abort any already running 'seeking' instances
+                        this.__seeking = true;
+                        this.__fireMediaEvent("timeupdate");
+                        HTMLAudioElement.__swf.__setCurrentTime(this.__fallbackId, time);
                     },
                     
                     
@@ -387,8 +442,39 @@
                             // TODO: Send mute message to fallback
                             this.__fireMediaEvent("volumechange");                            
                         }
-                    },                    
+                    },
+                    
+                    __endedCallback: function() {
+                        if (this.loop) {
+                            this.currentTime = this.startTime;
+                            this.play();
+                        } else {
+                            this.__ended = true;
+                            this.__fireMediaEvent("timeupdate");
+                            this.__fireMediaEvent("ended");
+                        }
+                    },
+                    __errorCallback: function() {
+                        
+                    },
+                    __seekedCallback: function() {
+                        
+                    },
+                    __extendEvent: function(ev, args) {
+                        var eventName = args[0];
+                        if (eventName === "progress") {
+                            // Copying Firefox's behavior by specifying
+                            // the bytes so far for 'progress' events
+                            ev.lengthComputable = true;
+                            ev.loaded = args[1];
+                            ev.total = args[2];
+                        }
+                    },
 
+                    // This is a simple boolean that the developer can check
+                    // to determine whether or not this media element is native
+                    // to the browser, or using the fallback mechanism.
+                    isNative: false,
                     toString: function() {
                         return "[object HTMLMediaElement]";
                     }
@@ -410,6 +496,8 @@
             if (window.HTMLAudioElement) {
                 HAS_NATIVE_AUDIO = true;
                 
+                HTMLAudioElement.prototype.isNative = true;
+                
                 var nativeLoad = HTMLAudioElement.prototype.load;
                 HTMLAudioElement.prototype.load = function() {
                     console.log("calling overriden HTMLAudioElement#load");
@@ -417,7 +505,7 @@
                 }
 
             } else {
-                
+
             // User agent hasn't implemented HTMLAudioElement, we must
             // implement our own with regular JS, following the spec.
                 function HTMLAudioElement() {
@@ -430,9 +518,40 @@
                         return "[object HTMLAudioElement]";
                     },
                     load: function() {
-                        this.__currentSrc = this.src;
+                        if (this.__networkState === this.NETWORK_LOADING || this.__networkState === this.NETWORK_IDLE) {
+                            this.__fireMediaEvent("abort");
+                        }
+                        if (this.__networkState !== this.NETWORK_EMPTY) {
+                            this.__networkState = this.NETWORK_EMPTY;
+                            this.__readyState = this.HAVE_NOTHING;
+                            this.__paused = true;
+                            this.__seeking = false;
+                            this.__fireMediaEvent("emptied");
+                        }
+                        this.playbackRate = this.defaultPlaybackRate;
+                        this.__error = null;
+                        resourceSelectionAlgorithm.call(this);
+                        
+                        
+                        //this.__currentSrc = this.src;
                         if (!this.__fallbackId) {
+                            
+                            // WTF? Properties on String are removed when createSound
+                            // is called (FF2 on OSX, doesn't happen on Win)! Need to
+                            // look into more deeply, ExternalInterface bug?
+                            var string = extend({}, String);
+                            
                             this.__fallbackId = HTMLAudioElement.__swf.__createSound(this.src, this.volume);
+                            
+                            // Copy the removed props from String back...
+                            //extend(String, string);
+                            for (var k in string) {
+                                if (!String[k]) {
+                                    String[k] = string[k];
+                                    console.log(k + " was missing from String!");
+                                }
+                            }
+                            
                             if (!HTMLAudioElement.__swfSounds) HTMLAudioElement.__swfSounds = [];
                             HTMLAudioElement.__swfSounds.push(this);
                         } else {
@@ -440,21 +559,33 @@
                         }
                     },
                     play: function() {
-                        if (this.networkState === this.NETWORK_EMPTY) {
-                            // Invoke 'resource selection algorithm'
+                        if (this.__networkState === this.NETWORK_EMPTY) {
+                            this.load();
                         }
-                        if (this.ended && this.playbackRate >= 0) {
+                        if (this.__ended && this.playbackRate >= 0) {
                             this.currentTime = this.startTime;
                         }
-                        if (this.paused === true) {
+                        if (this.__paused === true) {
                             this.__paused = false;
                             this.__fireMediaEvent("play");
-                            // TODO Finish
+                            if (this.__readyState === this.HAVE_NOTHING || this.__readyState === this.HAVE_METADATA || this.__readyState === this.HAVE_CURRENT_DATA) {
+                                this.__fireMediaEvent("waiting");
+                            } else {
+                                this.__fireMediaEvent("playing");
+                            }
+                            HTMLAudioElement.__swf.__play(this.__fallbackId);
                         }
-                        HTMLAudioElement.__swf.__play(this.__fallbackId);
                     },
                     pause: function() {
-                        HTMLAudioElement.__swf.__pause(this.__fallbackId);
+                        if (this.__networkState === this.NETWORK_EMPTY) {
+                            this.load();
+                        }
+                        if (this.__paused === false) {
+                            this.__paused = true;
+                            this.__fireMediaEvent("timeupdate");
+                            this.__fireMediaEvent("pause");
+                            HTMLAudioElement.__swf.__pause(this.__fallbackId);
+                        }
                     }
                 });
                 window.HTMLAudioElement = HTMLAudioElement;
@@ -480,12 +611,12 @@
 
                 // The HTMLAudioElement has a convience constructor: Audio.
                 function Audio() {
-                    if (!(this instanceof arguments.callee)) {
-                        throw new TypeError("DOM object constructor cannot be called as a function.");
-                    }
+                    //if (!(this instanceof arguments.callee)) {
+                    //    throw new TypeError("DOM object constructor cannot be called as a function.");
+                    //}
                     var a = document.createElement("audio"), src = arguments[0];
                     a.preload = "auto";
-                    if (src) a.src = src;
+                    if (src !== undefined) a.src = String(src);
                     return a;
                 }
                 Audio.prototype = HTMLAudioElement.prototype;
@@ -502,10 +633,9 @@
             
             
             
-            
             // Embed the fallback SWF into the page
             function embedSwf() {
-                console.log("embedding SWF at: " + AUDIO_SWF_PATH);
+                console.log("embedding SWF at: " + HTMLAudioElement.swfPath);
                 var container = document.createElement("div"),
                     id = "HtmlAudio",
                     flashvars = {},
@@ -517,7 +647,7 @@
                     };
                 container.id = id;
                 document.body.appendChild(container);
-                swfobject.embedSWF(AUDIO_SWF_PATH, id, 1, 1, "10", false, flashvars, params, attributes);
+                swfobject.embedSWF(HTMLAudioElement.swfPath, id, 1, 1, "10", false, flashvars, params, attributes);
             }
             
             function swfLoaded() {
@@ -527,20 +657,22 @@
             HTMLAudioElement.__swfLoaded = swfLoaded;
             
             function fixHtmlTags() {
-                var audioNodes = document.getElementsByTagName("audio"), i, node;
-                console.log(audioNodes.length + " <audio> nodes in the document.");
+                var audioNodes = document.getElementsByTagName("audio"),
+                    videoNodes = document.getElementsByTagName("video"), i, node;
                 for (i=0; i<audioNodes.length; i++) {
                     node = audioNodes[i];
                     if (!HAS_NATIVE_AUDIO) {
                         new HTMLAudioElement(node);
-                        if (node.hasAttribute && node.hasAttribute("_moz-userdefined")) {
-                            //console.log("removing '_moz-userdefined' from node");
-                            node.removeAttribute("_moz-userdefined");
-                        }
+                        node.removeAttribute("_moz-userdefined");
                     } else {
-                        console.log(node.error);
+                        //console.log(node.error);
                         //HTMLAudioElement.__attemptFallback(audioNodes[i]);
                     }
+                }
+                
+                for (i=0; i<videoNodes.length; i++) {
+                    node = videoNodes[i];
+                    console.log(node.error);
                 }
             }
             
@@ -549,7 +681,15 @@
             function init() {
                 if (arguments.callee.done) return;
                 arguments.callee.done = true;
-                // do your thing
+
+                if (isIE) {
+                    // For IE to fire custom events and use real getters and setters,
+                    // they must be defined in an HTC file and applied via CSS 'behavior'.
+                    var style = document.createElement("style");
+                    style.type = "text/css";
+                    style.styleSheet.cssText = "audio, video { behavior:url("+HTMLMediaElement.htcPath+"); }";
+                    documentHead.appendChild(style);
+                }
                 embedSwf();
                 fixHtmlTags();
             }
@@ -616,3 +756,7 @@
         }
     })(nativeCheckComplete);
 })();
+
+HTMLMediaElement.htcPath = "HTMLMediaElement.htc";
+HTMLAudioElement.swfPath = "HtmlAudio.swf";
+//HTMLVideoElement.swfPath = "HtmlVideo.swf";

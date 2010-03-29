@@ -20,7 +20,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-<PUBLIC:COMPONENT NAME="HTMLMediaElement">
+<PUBLIC:COMPONENT NAME="HTMLMediaElement" LIGHTWEIGHT=true>
+    <PUBLIC:ATTACH EVENT="oncontentready" ONEVENT="__initialize()"/>
 
     <PUBLIC:PROPERTY NAME="error" GET="errorGet" />
     <PUBLIC:PROPERTY NAME="src" GET="srcGet" PUT="srcSet" />
@@ -35,7 +36,6 @@
     <PUBLIC:PROPERTY NAME="controls" GET="controlsGet" PUT="controlsSet" />
     <PUBLIC:PROPERTY NAME="volume" GET="volumeGet" PUT="volumeSet" />
     <PUBLIC:PROPERTY NAME="muted" GET="mutedGet" PUT="mutedSet" />
-    
 
     <PUBLIC:EVENT NAME="onloadstart" ID="onloadstart" />
     <PUBLIC:EVENT NAME="onprogress" ID="onprogress" />
@@ -61,7 +61,6 @@
     <PUBLIC:EVENT NAME="onvolumechange" ID="onvolumechange" />
     
     <PUBLIC:METHOD NAME="__fireMediaEvent" />
-    <PUBLIC:METHOD NAME="__initialize" />
     
     <SCRIPT LANGUAGE="JScript" >
       	var ev, events = {
@@ -144,9 +143,13 @@
   	    // (i.e. is in original HTML), attempt to set props prematurely, this
   	    // ensures props are properly added after the 'setter' functions.
   	    function __initialize() {
+            var props = 0;
   	        for (var i in initialProps) {
+  	            //window.console.log("initalizing prop: " + i);
   	            this[i] = initialProps[i];
+  	            props++;
   	        }
+            //window.console.log("calling __initialize: " + props + " premature props");
   	    }
   	    
         // Dispatches an HTML5 media event at the element.
@@ -154,6 +157,7 @@
         {
             if (eventName in events) {
                 ev = createEventObject();
+                this.__extendEvent.call(this, ev, arguments);
                 events[eventName].fire(ev);
             }
         }
