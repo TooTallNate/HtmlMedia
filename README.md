@@ -111,7 +111,7 @@ API, I highly recommend reading any of the browser vendors' articles on the matt
 
 * [Mozilla's "Using audio and video (in Firefox)"](https://developer.mozilla.org/En/Using_audio_and_video_in_Firefox)
 * [Opera's "Everything you need to know about HTML5 video and audio"](http://my.opera.com/core/blog/2010/03/03/everything-you-need-to-know-about-html5-video-and-audio-2)
-* [Apple's "Safari Guide to HTML5 Audio and Video"](https://developer.mozilla.org/En/Using_audio_and_video_in_Firefox)
+* [Apple's "Safari Guide to HTML5 Audio and Video"](http://developer.apple.com/safari/library/documentation/AudioVideo/Conceptual/Using_HTML5_Audio_Video/Introduction/Introduction.html)
 * Is there a Google one anywhere?
 
 
