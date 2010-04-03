@@ -20,7 +20,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-<PUBLIC:COMPONENT NAME="HTMLMediaElement" LIGHTWEIGHT=true>
+<PUBLIC:COMPONENT NAME="HTMLAudioElement" LIGHTWEIGHT=true>
     <PUBLIC:ATTACH EVENT="oncontentready" ONEVENT="__initialize()"/>
 
     <PUBLIC:PROPERTY NAME="error" GET="errorGet" />
@@ -36,6 +36,9 @@
     <PUBLIC:PROPERTY NAME="controls" GET="controlsGet" PUT="controlsSet" />
     <PUBLIC:PROPERTY NAME="volume" GET="volumeGet" PUT="volumeSet" />
     <PUBLIC:PROPERTY NAME="muted" GET="mutedGet" PUT="mutedSet" />
+    <PUBLIC:PROPERTY NAME="buffered" GET="bufferedGet" />
+    <PUBLIC:PROPERTY NAME="played" GET="playedGet" />
+    <PUBLIC:PROPERTY NAME="seekable" GET="seekableGet" />
 
     <PUBLIC:EVENT NAME="onloadstart" ID="onloadstart" />
     <PUBLIC:EVENT NAME="onprogress" ID="onprogress" />
@@ -59,6 +62,7 @@
     <PUBLIC:EVENT NAME="onratechange" ID="onratechange" />
     <PUBLIC:EVENT NAME="ondurationchange" ID="ondurationchange" />
     <PUBLIC:EVENT NAME="onvolumechange" ID="onvolumechange" />
+    <PUBLIC:EVENT NAME="onfallback" ID="onfallback" />
     
     <PUBLIC:METHOD NAME="__fireMediaEvent" />
     
@@ -85,7 +89,8 @@
             "ended":onended,
             "ratechange":onratechange,
             "durationchange":ondurationchange,
-            "volumechange":onvolumechange
+            "volumechange":onvolumechange,
+            "onfallback":onfallback
       	},
       	initialProps = {};
       	
@@ -102,6 +107,9 @@
       	function controlsGet() { return this.__controlsGet(); }
       	function volumeGet() { return this.__volumeGet(); }
       	function mutedGet() { return this.__mutedGet(); }
+      	function bufferedGet() { return this.__bufferedGet(); }
+      	function playedGet() { return this.__palyedGet(); }
+      	function seekableGet() { return this.__seekableGet(); }
 
       	function srcSet(v) {
       	    if (this.__srcSet) {
@@ -157,7 +165,7 @@
         {
             if (eventName in events) {
                 ev = createEventObject();
-                this.__extendEvent.call(this, ev, arguments);
+                this.__extendEvent(ev, arguments);
                 events[eventName].fire(ev);
             }
         }

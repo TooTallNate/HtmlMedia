@@ -11,9 +11,9 @@
     <script type="text/javascript" src="../swfobject.js"></script>
     <script type="text/javascript" src="../HtmlMedia.js"></script>
     <script type="text/javascript">
-        HTMLMediaElement.htcPath = "../HTMLMediaElement.htc";
-        HTMLAudioElement.swfPath = "../HtmlAudio.swf";
-        //HTMLVideoElement.swfPath = "../HtmlVideo.swf";
+        // The only optional configuration is to set the
+        // path to the location of the dependant files.
+        HTMLMediaElement.setPath("..");
 
         document.observe("dom:loaded", function() {
             ignore = false;
@@ -61,7 +61,9 @@
                 
                 function logEvent(ev) {
                     var textArea = $("event-log");
-                    textArea.value += '\n' + (new Date).getTime() + ': "' + ev.type + '" event fired';
+                    var val = '\n' + (new Date).getTime() + ': "' + ev.type + '" event fired';
+                    //console.log(val);
+                    textArea.value += val;
                     textArea.scrollTop = textArea.scrollHeight;
                 }
                 
@@ -69,14 +71,16 @@
                 "stalled", "play", "pause", "loadedmetadata", "loadeddata",
                 "waiting", "playing", "canplay", "canplaythrough", "seeking",
                 "seeked", "timeupdate", "ended", "ratechange", "durationchange",
-                "volumechange"].each(function(e) {
-                    a.observe(e, logEvent);
+                "volumechange", "fallback"].each(function(eventName) {
+                    a.observe(eventName, logEvent);
                 });
                 a.observe("timeupdate", function() {
                     var t = (new Date).getTime();
                     if (!isNaN(lastTimeUpdate)) {
                         var textArea = $("event-log");
-                        textArea.value += " ("+(t-lastTimeUpdate)+")";
+                        var val = " ("+(t-lastTimeUpdate)+")";
+                        //console.log(val);
+                        textArea.value += val;
                         textArea.scrollTop = textArea.scrollHeight;
                     }
                     lastTimeUpdate = t;
@@ -89,12 +93,12 @@
     <!-- So as you can see, we're just using standards compliant HTML5 markup
          to create the <audio> node. By including 'HtmlMedia.js' in the <head>,
          we can be confident that it will work in ~98% of browsers today! -->
-    <audio src="sounds/ping.mp3" loop="loop"
+    <audio src="sounds/ping.mp3" loop="loop" autoplay=1
            ondurationchange="$('duration').update(this.duration)"
            onvolumechange="$('volume').update(this.volume + (this.muted ? ', muted' : ''))"
-           onended="console.log('song ended');"
-           onprogress="$('loaded').update(event.lengthComputable ? event.loaded/event.total * 100 + '%' : this.buffered.end(0)/this.duration * 100 + '%*');"
-           ontimeupdate="if (timeSlider && this.duration) { ignore = true; timeSlider.setValue(this.currentTime / this.duration); ignore = false; } $('currentTime').update(this.currentTime)">
+           onprogress="$('loaded').update(event.lengthComputable ? event.loaded/event.total * 100 + '%' : this.buffered.end(0)/this.duration * 100 + '%*')"
+           ontimeupdate="if (timeSlider && this.duration) { ignore = true; timeSlider.setValue(this.currentTime / this.duration); ignore = false; } $('currentTime').update(this.currentTime)"
+           onfallback="$('isNative').update(this.isNative)">
     </audio>
     
     <button id="load" onclick="$$('audio')[0].load()">Load</button>
@@ -141,7 +145,7 @@
         </tr>
     </table>
 
-    <textarea id="event-log" style="width:90%; height:200px;"></textarea>
-
+    <textarea id="event-log" style="width:90%; height:200px;"></textarea><br />
+    <button onclick="$('event-log').value = '';">Clear "Event Log"</button>
 </body>
 </html>

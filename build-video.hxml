@@ -1,0 +1,4 @@
+-cp src
+-main HTMLVideoElement
+-swf-version 10
+-swf9 HtmlVideo.swf

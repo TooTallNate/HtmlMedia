@@ -20,37 +20,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-import flash.media.SoundTransform;
-import haxe.Timer;
+<PUBLIC:COMPONENT NAME="HTMLVideoElement" LIGHTWEIGHT=true>
 
-class HTMLMediaElement {
-    var fallbackId : Int;
-    var transform : SoundTransform;
-    var volume : Float;
-    var muted : Bool;
-    var lastPosition : Float;
-    var duration : Float;
-    var isDurationPositive : Bool;
-    var lastProgressEvent : Float;
-    var playTimer : Timer;
-    var metadataSent : Bool;
-    
-    public function new(fallbackId:Int, src:String, volume:Float, muted:Bool) {
-        this.fallbackId = fallbackId;
-        this.volume = volume;
-        this.muted = muted;
-        this.lastPosition = this.lastProgressEvent = 0;
-        this.isDurationPositive = false;
-        this.transform = new SoundTransform(muted ? 0 : volume, 0);
-    }
+    <PUBLIC:PROPERTY NAME="width" GET="widthGet" PUT="widthSet" />
+    <PUBLIC:PROPERTY NAME="height" GET="heightGet" PUT="heightSet" />
+    <PUBLIC:PROPERTY NAME="videoWidth" GET="videoWidthGet" />
+    <PUBLIC:PROPERTY NAME="videoHeight" GET="videoHeightGet" />
+    <PUBLIC:PROPERTY NAME="poster" GET="posterGet" PUT="posterSet" />
 
-    public function setMuted(muted: Bool) {
-        this.muted = muted;
-        this.setVolume(this.volume);
-    }
+    <SCRIPT LANGUAGE="JScript" >
+        
+    </SCRIPT>
 
-    public function setVolume(vol: Float) {
-        this.volume = vol;
-        this.transform.volume = this.muted ? 0 : vol;
-    }
-}
+</PUBLIC:COMPONENT>
