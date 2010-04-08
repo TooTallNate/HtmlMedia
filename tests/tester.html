@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html> 
+<html>
 <head>
-    <title>HTML5 &lt;audio&gt; Flash Fallback</title>
+    <title>HTML5 &lt;audio&gt; and &lt;video&gt; Flash Fallback</title>
+    <link href="pretty.css" rel="stylesheet" type="text/css">
 
     <!-- NOT required for HtmlMedia
     <script type="text/javascript" src="http://getfirebug.com/releases/lite/1.2/firebug-lite-compressed.js"></script> -->
@@ -19,7 +20,8 @@
             ignore = false;
 			function timeChange(v) {
 			    if (!ignore) {
-			        $$("audio")[0].currentTime = v * $$("audio")[0].duration;
+			        var e = $$("audio, video")[0];
+			        e.currentTime = v * e.duration;
 		        }
 			}
 			timeSlider = new Control.Slider('time-handle', 'time', {
@@ -28,7 +30,7 @@
 			});
 
             function volumeChange(v) {
-                $$("audio")[0].volume = v;
+                $$("audio, video")[0].volume = v;
             }
 			volumeSlider = new Control.Slider('volume-handle', 'volume-slider', {
 			    sliderValue: 1,
@@ -43,13 +45,19 @@
             // This call to setTimeout ensures that we wait those few ms so
             // that they are properly extended.
             setTimeout(function() {
-                var a = $$("audio")[0];
-                
-                var div = document.createElement("div");
-                div.appendChild(a.cloneNode(true));
-                document.body.insertBefore(document.createTextNode(div.innerHTML), a);
-                document.body.insertBefore(document.createElement("br"), a);
-                document.body.insertBefore(document.createElement("br"), a);
+                var a = $$("audio, video")[0],
+                    div = document.createElement("div"),
+                    clone = a.cloneNode(true),
+                    pre = document.createElement("pre"),
+                    link = document.createElement("a"),
+                    code = document.createElement("code");
+                clone.autoplay = false;
+                div.appendChild(clone);
+                code.appendChild(document.createTextNode(div.innerHTML));
+                link.href="javascript:void(0)";
+                link.appendChild(code);
+                pre.appendChild(link);
+                document.body.insertBefore(pre, a);
                 
                 $("isNative").update(a.isNative);
                 $("src").update(a.src);
@@ -85,46 +93,71 @@
                     }
                     lastTimeUpdate = t;
                 });
+                a.observe("durationchange", function() {
+                    $('duration').update(this.duration);
+                });
+                a.observe("volumechange", function() {
+                    $('volume').update(this.volume + (this.muted ? ', muted' : ''));
+                });
+                a.observe("progress", function(e) {
+                    var s = '';
+                    if (e.lengthComputable) {
+                        s=e.loaded/e.total * 100 + '%';
+                    } else if (this.buffered.length > 0) {
+                        s=this.buffered.end(0)/this.duration * 100 + '%*';
+                    } else {
+                        s='0% (buffered.length==0)';
+                    }
+                    $('loaded').update(s);
+                });
+                a.observe("timeupdate", function() {
+                    if (timeSlider && this.duration) {
+                        ignore = true;
+                        var val = this.currentTime / this.duration;
+                        if (!isNaN(val))
+                            timeSlider.setValue(val);
+                        ignore = false;
+                    }
+                    $('currentTime').update(this.currentTime);
+                });
+                a.observe("fallback", function() {
+                    $('isNative').update(this.isNative);
+                });
             }, 10);
         });
     </script>
 </head>
 <body>
-    <!-- So as you can see, we're just using standards compliant HTML5 markup
-         to create the <audio> node. By including 'HtmlMedia.js' in the <head>,
-         we can be confident that it will work in ~98% of browsers today! -->
-    <audio src="sounds/ping.mp3" loop="loop" autoplay=1
-           ondurationchange="$('duration').update(this.duration)"
-           onvolumechange="$('volume').update(this.volume + (this.muted ? ', muted' : ''))"
-           onprogress="$('loaded').update(event.lengthComputable ? event.loaded/event.total * 100 + '%' : this.buffered.end(0)/this.duration * 100 + '%*')"
-           ontimeupdate="if (timeSlider && this.duration) { ignore = true; timeSlider.setValue(this.currentTime / this.duration); ignore = false; } $('currentTime').update(this.currentTime)"
-           onfallback="$('isNative').update(this.isNative)">
-    </audio>
+    <script type="text/javascript">
+        // Write an <audio> or <video> node following a ? symbol after the
+        // URL (query string style). See 'index.html' for examples.
+        document.write(unescape(window.location.search.substring(1)));
+    </script>
+    <br />
+    <button id="load" onclick="$$('audio, video')[0].load()">Load</button>
+    <button id="play" onclick="$$('audio, video')[0].play()">Play</button>
+    <button id="pause" onclick="$$('audio, video')[0].pause()">Pause</button>
+    <button id="mute" onclick="$$('audio, video')[0].muted = !$$('audio, video')[0].muted">Toggle Mute</button>
     
-    <button id="load" onclick="$$('audio')[0].load()">Load</button>
-    <button id="play" onclick="$$('audio')[0].play()">Play</button>
-    <button id="pause" onclick="$$('audio')[0].pause()">Pause</button>
-    <button id="mute" onclick="$$('audio')[0].muted = !$$('audio')[0].muted">Toggle Mute</button>
-    
-    <table>
+    <table width="100%">
         <tr>
-            <td><b>isNative:</b></td>
+            <td width=50><b>isNative:</b></td>
             <td colspan=2><span id="isNative"></span></td>
         </tr>
         <tr>
-            <td><b>src:</b></td>
+            <td width=50><b>src:</b></td>
             <td colspan=2><span id="src"></span></td>
         </tr>
         <tr>
-            <td><b>loaded:</b></td>
+            <td width=50><b>loaded:</b></td>
             <td colspan=2><span id="loaded"></span></td>
         </tr>
         <tr>
-            <td><b>duration:</b></td>
+            <td width=50><b>duration:</b></td>
             <td colspan=2><span id="duration"></span></td>
         </tr>
         <tr>
-            <td><b>currentTime:</b></td>
+            <td width=50><b>currentTime:</b></td>
             <td width=210>
                 <div id="time" style="width:200px; background-color:#ccc; height:10px; margin-bottom:10px; display:inline-block;">
                     <div id="time-handle" style="width:4px; height:14px; background-color:#f00; cursor:move; position:relative; top:-2px;">
@@ -134,7 +167,7 @@
             <td width=250><span id="currentTime"></span></td>
         </tr>
         <tr>
-            <td><b>volume:</b></td>
+            <td width=50><b>volume:</b></td>
             <td width=210>
                 <div id="volume-slider" style="width:200px; background-color:#ccc; height:10px; margin-bottom:10px; display:inline-block;">
                     <div id="volume-handle" style="width:4px; height:14px; background-color:#00f; cursor:move; position:relative; top:-2px;">

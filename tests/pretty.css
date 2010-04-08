@@ -1,0 +1,28 @@
+body {
+    background-color: #000;
+    color: #ccc;
+    font-family: Arial;
+    width: 500px;
+}
+
+pre a {
+    background-color: #ccc;
+    border: Solid 1px #666;
+    font-size: 1.5em;
+    color: #666;
+    font-weight: bold;
+    padding: 5px;
+    text-decoration: none;
+}
+
+pre a:hover {
+    border: Solid 1px #393;
+    background-color: #9c9;
+    color: #060;
+}
+
+pre a:active {
+    border: Solid 1px #993;
+    background-color: #cc9;
+    color: #660;
+}

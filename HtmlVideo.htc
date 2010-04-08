@@ -29,7 +29,21 @@
     <PUBLIC:PROPERTY NAME="poster" GET="posterGet" PUT="posterSet" />
 
     <SCRIPT LANGUAGE="JScript" >
+        function widthGet() { return this.__widthGet(); }
+        function heightGet() { return this.__heightGet(); }
+        function videoHeightGet() { return this.__videoHeightGet(); }
+        function videoWidthGet() { return this.__videoWidthGet(); }
+        function posterGet() { return this.__posterGet(); }
         
+        function widthSet(v) {
+            this.__widthSet(v);
+        }
+        function heightSet(v) {
+            this.__heightSet(v);
+        }
+        function posterSet(v) {
+            this.__posterSet(v);
+        }
     </SCRIPT>
 
 </PUBLIC:COMPONENT>

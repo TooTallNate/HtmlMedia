@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5 &lt;video&gt; to &lt;canvas&gt; Test</title>
+    <link href="pretty.css" rel="stylesheet" type="text/css">
+    <style type="text/css">
+      #c2 {
+        background-image: url(tie-dye.jpg);
+        background-repeat: no-repeat;
+      }
+      div {
+        float: left;
+        border :1px solid #444444;
+        padding:10px;
+        margin: 10px;
+        background:#3B3B3B;
+      }
+    </style>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/prototype/1.6.1.0/prototype.js"></script>
+    <script type="text/javascript" src="../swfobject.js"></script>
+    <script type="text/javascript" src="../HtmlMedia.js"></script>
+    <script type="text/javascript">
+        // Set the path for `HtmlMedia` dependant files
+        HTMLMediaElement.setPath("..");
+        
+        function timerCallback() {
+            if (video.paused || video.ended) {
+                return;
+            }
+            computeFrame();
+            timerCallback.defer();
+        }
+        
+        function computeFrame() {
+            var w = 160;
+            var h = 96;
+            ctx1.drawImage(video, 0, 0, w, h);
+            var frame = ctx1.getImageData(0, 0, w, h);
+            var l = frame.data.length / 4;
+
+            for (var i = 0; i < l; i++) {
+                var r = frame.data[i * 4 + 0];
+                var g = frame.data[i * 4 + 1];
+                var b = frame.data[i * 4 + 2];
+                if (g > 100 && r > 100 && b < 43)
+                    frame.data[i * 4 + 3] = 0;
+            }
+            ctx2.putImageData(frame, 0, 0);
+        }
+        
+        document.observe("dom:loaded", function() {
+            video = $("video");  
+            c1 = $("c1");  
+            ctx1 = c1.getContext("2d");  
+            c2 = $("c2");  
+            ctx2 = c2.getContext("2d");  
+            video.observe("play", function() {  
+                timerCallback();  
+            });  
+        });
+        
+    </script>
+</head>
+<body>
+    <h3>If your current browser supports the HTML5 &lt;canvas&gt; element,
+        then this example shows how to use the frame-by-frame pixel data
+        from a &lt;video&gt; element, and apply an effect using JavaScript.
+    </h3>
+    <h4>This test was adapted from the Mozilla
+        <a href="https://developer.mozilla.org/En/Manipulating_video_using_canvas">Manipulating video using canvas</a> 
+        tutorial.
+    </h4>
+    
+    <div>  
+        <video id="video" src="videos/chihuahua.mp4" autoplay loop></video>
+    </div>  
+    <div>  
+        <canvas id="c1" width="160" height="96" ></canvas>  
+        <canvas id="c2" width="160" height="96" ></canvas>
+    </div>
+    
+</body>
+</html>

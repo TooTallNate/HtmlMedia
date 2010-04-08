@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTML5 &lt;audio&gt; and &lt;video&gt; Flash Fallback</title>
+    <link href="pretty.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/prototype/1.6.1.0/prototype.js"></script>
+    <script type="text/javascript">
+        document.observe("click", function(e) {
+            var link = e.findElement("pre a");
+            if (link) {
+                var html = encodeURIComponent(link.down().firstChild.nodeValue);
+                window.location.href = "tester.html?" + html;
+            }
+        });
+    </script>
+</head>
+<body>
+    <h3>Clicking on any of the &lt;audio&gt; or &lt;video&gt; nodes below will
+        redirect to the test page using the specified HTML source. If the
+        browser can play the media with it's native HTML5 media implementation,
+        then that will be used, otherwise, <i>HtmlMedia</i> will kick in and
+        provide playback support through Flash.</h3>
+
+    <p>This is essentially as simple as it gets, a barebones &lt;audio&gt;
+        example playing an MP3:
+        <pre><a href="javascript:void(0)"><code>&lt;audio src="sounds/thanks.mp3"&gt;&lt;/audio&gt;</code></a></pre>
+    </p>
+
+    <p>And a barebones &lt;video&gt; example playing an H.264 encoded video:
+        <pre><a href="javascript:void(0)"><code>&lt;video src="videos/chihuahua.mp4"&gt;&lt;/video&gt;</code></a></pre>
+    </p>
+
+    <p>With <b>HtmlMedia</b>, you can easily embed Flash encoded <i>FLV</i>
+        files (better known as the On2 VP6 codec) using nothing but
+        standards-compliant HTML5 markup.
+        <pre><a href="javascript:void(0)"><code>&lt;video src="videos/chihuahua.flv"&gt;&lt;/video&gt;</code></a></pre>
+    </p>
+
+</body>
+</html>

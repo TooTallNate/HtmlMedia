@@ -32,7 +32,7 @@ The `HtmlMedia` library should:
    native implementation to fallback to Flash when required *completely transparently*.
 
  * If HTML5 media is supported AND *all* the codecs that the fallback supports
-   are also supported by the browser (not likely, consider `flv` video files),
+   are also supported by the browser (not likely, consider `FLV` video files),
    then this library should detect so and do nothing.
    
  * When the Flash fallback must be used, it should integrate with the
@@ -43,10 +43,15 @@ The `HtmlMedia` library should:
    JavaScript compatibility libraries (i.e.
    [Prototype's Event.observe](http://api.prototypejs.org/dom/event/observe/)).
 
+ * As the fallback technology used is Flash, `HtmlMedia` can provide playback
+   support for `FLV` files. This should be a **standards compliant** way to
+   embed Flash video files via the standard `<video>` element. Possibly the
+   new easiest way to include `FLV`s on your site?
+
 Ultimately, this gives the web developer access to the HTML5 Audio and Video
 API on all browsers with Flash installed (~98%), with **AT LEAST** the codecs
 supported by the Flash fallback guaranteed to work, plus any other codecs that
-the web browser's implementation decides to implement.
+the web browser's implementation decided to implement.
 
 Supported Browsers
 ------------------
@@ -59,11 +64,17 @@ to drool about:
  * Opera 10.1+ (Possibly 10.0, definitely not 9 or below; no getter/setter support)
  * Testing for more needed!!
 
+The browser requires at least the `Flash Player 10` plugin installed to use
+for guaranteed codec support.
+
 Supported Codecs
 ----------------
 
-This library provides guaranteed support for MP3 files via the Flash fallback
-for the `<audio>` tag.
+`HtmlMedia` guarantees that, using Flash as a backbone, you can use the HTML5
+media API with the following codecs:
+
+`<audio>`: MP3 and AAC (m4a) encoded audio files (Vorbis coming soon!)
+`<video>`: FLV and H.264 (mp4) encoded video files (Theora probably *not* coming...)
     
 If the current browser has any others codecs supported via its HTML5 media
 implementation, then those are obviously still supported as well.
@@ -131,21 +142,28 @@ Known Limitations
 I'm proud to say that the limitations brought on by this library are very
 minimal, and in any regular-use case, you likely wouldn't even know about them:
 
- * innerHTML - DO NOT create `<audio>`, `<video>` or `<source>`
-   nodes via setting a parent element's `innerHTML` property. The newly created
-   nodes will not be properly extended with the HTML5 API and fallback if you
-   do! You can insert said nodes either via the initial HTML source, or
-   dynamically via `document.createElement`.
+ * `innerHTML` - DO NOT create `<audio>` or `<video>` nodes via setting a parent
+   element's `innerHTML` property. The newly created nodes will not be
+   properly extended with the HTML5 API and fallback if you do! You can insert
+   said nodes either via the initial HTML source, or dynamically via
+   `document.createElement` or `new Audio()`.
 
- * It's not possible to overwrite the functionality of the built-in browser
-   `controls` for media elements. Furthermore, `HtmlMedia` has no plans on
-   implementing the attribute. For these reasons, it is not recommended to use
-   the `controls` attribute at all. However, all media events to build your own
-   user interface do fire, and that is always recommended!
+ * `<source>` - There's currently no support for the `<source>` element inside
+   of media elements. This shouldn't be a problem, however, since `HtmlMedia`
+   guarantees a baseline codec set. You should just set the `src` attribute
+   on `<audio>` or `<video>` nodes; if the media is natively supported, it
+   will be played via the browser, if not, then it will fall back to Flash.
+
+ * `controls` - It's not possible to overwrite the functionality of the
+   built-in browser `controls` for media elements. Furthermore, `HtmlMedia`
+   has no plans on implementing the attribute. For these reasons, it is not
+   recommended to use the `controls` attribute at all. However, all media
+   events to build your own user interface do fire, and that is always
+   recommended!
 
  * Currently, upgrading native `<audio>` and `<video>` nodes to use
    the Flash fallback is a destructive process. In other words, if an `error`
-   event is fired, and `currentSrc` is a file where the Flash fallback needs
+   event is fired, and it's `src` is a file where the Flash fallback needs
    to be used, then that media element is "converted" to a "fallback node" and
    from then on can only be used to play files supported by the fallback.
    Native playback is removed from that individual element. Just don't be

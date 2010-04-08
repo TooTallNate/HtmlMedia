@@ -21,7 +21,6 @@
  * THE SOFTWARE.
  */
 <PUBLIC:COMPONENT NAME="HTMLAudioElement" LIGHTWEIGHT=true>
-    <PUBLIC:ATTACH EVENT="oncontentready" ONEVENT="__initialize()"/>
 
     <PUBLIC:PROPERTY NAME="error" GET="errorGet" />
     <PUBLIC:PROPERTY NAME="src" GET="srcGet" PUT="srcSet" />
@@ -91,8 +90,7 @@
             "durationchange":ondurationchange,
             "volumechange":onvolumechange,
             "onfallback":onfallback
-      	},
-      	initialProps = {};
+      	};
       	
       	function errorGet() { return this.__errorGet(); }
         function srcGet() { return this.__srcGet(); }
@@ -112,62 +110,27 @@
       	function seekableGet() { return this.__seekableGet(); }
 
       	function srcSet(v) {
-      	    if (this.__srcSet) {
-      	        this.__srcSet(v);
-      	    } else {
-      	        initialProps.src = v;
-      	    }
+            this.__srcSet(v);
   	    }
       	function currentTimeSet(v) {
-      	    if (this.__currentTimeSet) {
-      	        this.__currentTimeSet(v);
-      	    } else {
-      	        initialProps.currentTime = v;
-      	    }
+            this.__currentTimeSet(v);
   	    }
       	function controlsSet(v) {
-      	    if (this.__controlsSet) {
-      	        this.__controlsSet(v);
-      	    } else {
-      	        initialProps.controls = v;
-      	    }
+  	        this.__controlsSet(v);
   	    }
       	function volumeSet(v) {
-      	    if (this.__volumeSet) {
-      	        this.__volumeSet(v);
-      	    } else {
-      	        initialProps.volume = v;
-      	    }
+  	        this.__volumeSet(v);
   	    }
       	function mutedSet(v) {
-      	    if (this.__mutedSet) {
-      	        this.__mutedSet(v);
-      	    } else {
-      	        initialProps.muted = v;
-      	    }
-  	    }
-      	
-  	    // Cloned nodes, or nodes already inserted in the DOM before creating
-  	    // (i.e. is in original HTML), attempt to set props prematurely, this
-  	    // ensures props are properly added after the 'setter' functions.
-  	    function __initialize() {
-            var props = 0;
-  	        for (var i in initialProps) {
-  	            //window.console.log("initalizing prop: " + i);
-  	            this[i] = initialProps[i];
-  	            props++;
-  	        }
-            //window.console.log("calling __initialize: " + props + " premature props");
+  	        this.__mutedSet(v);
   	    }
   	    
         // Dispatches an HTML5 media event at the element.
         function __fireMediaEvent(eventName)
         {
-            if (eventName in events) {
-                ev = createEventObject();
-                this.__extendEvent(ev, arguments);
-                events[eventName].fire(ev);
-            }
+            ev = createEventObject();
+            this.__extendEvent(ev, arguments);
+            events[eventName].fire(ev);
         }
     </SCRIPT>
 </PUBLIC:COMPONENT>

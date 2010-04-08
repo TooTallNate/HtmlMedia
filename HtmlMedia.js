@@ -20,17 +20,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-(function(w) {
-    var REGEXP_FILENAME_MP3 = /\.mp3(\?.*)?$/i,
+(function(w,d) {
+    var FLASH_SUPPORTED_AUDIO = /\.(mp3|mp4|m4a|mp4a|aac)(\?.*)?$/i,
+        FLASH_SUPPORTED_VIDEO = /\.(flv|mp4|m4v|mp4v|mov|3gp|3g2)(\?.*)?$/i,
         REGEXP_MIMETYPE_MP3 = /^audio\/(?:x-)?(?:mp(?:eg|3))\s*;?/i,
         REGEXP_MIMETYPE_FLV = /^video\/(?:x-)?(?:flv)\s*;?/i,
         HAS_NATIVE_AUDIO  = !!w.HTMLAudioElement,
         HAS_NATIVE_VIDEO  = !!w.HTMLVideoElement,
-        USE_FALLBACK_MP3  = false,
-        USE_FALLBACK_FLV  = true,
-        USE_FALLBACK_H264 = false,
-        HEAD = document.getElementsByTagName("head")[0],
-        isIE = !!document.attachEvent && Object.prototype.toString.call(w.opera) !== '[object Opera]',
+        HEAD = d.getElementsByTagName("head")[0],
+        isIE = !!d.attachEvent && Object.prototype.toString.call(w.opera) !== '[object Opera]',
+        HAS_CANVAS = CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.getImageData && CanvasRenderingContext2D.prototype.putImageData,
         MEDIA_EVENTS = [
             "loadstart",
             "progress",
@@ -57,72 +56,12 @@
             "fallback" // Non-standard event fired when a node falls back to Flash
         ];
 
-    // Extends the properties of one 'source' Object onto 'destination'
+    // Copies the properties from 'source' onto 'destination'
     function extend(destination, source) {
         for (var property in source)
             destination[property] = source[property];
         return destination;
     }
-    
-    /* Modified from http://gist.github.com/253174
-     *
-     * Detect if the browser can play a given codec with native
-     * HTML5 <audio> or <video>.
-     *
-     * @param aOrV - must be "audio" or "video", depending on the check
-     * @param mime - the mime type to test in "canPlayType"
-     * @param base64 - the base64 encoded data URI to use as the src for the test
-     * @param {function(boolean, Object|undefined)} callback
-     **/
-    function nativeCheck(aOrV, mime, base64, callback){
-        try {
-            var ele = document.createElement(aOrV);
-            // Shortcut which doesn't work in Chrome (always returns ""); pass through
-            // if "maybe" to do asynchronous check by loading MP3 data: URI
-            if(ele.canPlayType(mime) == "probably") {
-                callback(true);
-                return;
-            }
-
-            // If this event fires, then MP3s can be played
-            ele.addEventListener('loadedmetadata', function(e) {
-                callback(true);
-            }, false);
-
-            // If this is fired, then client can't play MP3s
-            ele.addEventListener('error', function(e){
-                callback(false, this.error)
-            }, false);
-
-            // Smallest base64-encoded MP3 I could come up with (<0.000001 seconds long)
-            ele.src = base64;
-            ele.load();
-        } catch(e) {
-            callback(false, e);
-        }
-    }
-    
-    if (HAS_NATIVE_AUDIO) {
-        nativeCheck("audio", 'audio/mpeg; codecs="MP3"', "data:audio/mpeg;base64,/+MYxAAAAANIAAAAAExBTUUzLjk4LjIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", function(canPlayMP3) {
-            USE_FALLBACK_MP3 = !canPlayMP3;
-            console.log("Native MP3 check complete: " + canPlayMP3);
-        });
-        nativeCheck("audio", 'audio/ogg; codecs="vorbis"', "data:audio/ogg;base64,T2dnUwACAAAAAAAAAABTkYlUAAAAABeKqR0BHgF2b3JiaXMAAAAAAUAfAAAAAAAAsDYAAAAAAACZAU9nZ1MAAAAAAAAAAAAAU5GJVAEAAACPWwFkCy3///////////%2B1A3ZvcmJpcx0AAABYaXBoLk9yZyBsaWJWb3JiaXMgSSAyMDA3MDYyMgAAAAABBXZvcmJpcxJCQ1YBAAABAAxSFCElGVNKYwiVUlIpBR1jUFtHHWPUOUYhZBBTiEkZpXtPKpVYSsgRUlgpRR1TTFNJlVKWKUUdYxRTSCFT1jFloXMUS4ZJCSVsTa50FkvomWOWMUYdY85aSp1j1jFFHWNSUkmhcxg6ZiVkFDpGxehifDA6laJCKL7H3lLpLYWKW4q91xpT6y2EGEtpwQhhc%2B211dxKasUYY4wxxsXiUyiC0JBVAAABAABABAFCQ1YBAAoAAMJQDEVRgNCQVQBABgCAABRFcRTHcRxHkiTLAkJDVgEAQAAAAgAAKI7hKJIjSZJkWZZlWZameZaouaov%2B64u667t6roOhIasBADIAAAYhiGH3knMkFOQSSYpVcw5CKH1DjnlFGTSUsaYYoxRzpBTDDEFMYbQKYUQ1E45pQwiCENInWTOIEs96OBi5zgQGrIiAIgCAACMQYwhxpBzDEoGIXKOScggRM45KZ2UTEoorbSWSQktldYi55yUTkompbQWUsuklNZCKwUAAAQ4AAAEWAiFhqwIAKIAABCDkFJIKcSUYk4xh5RSjinHkFLMOcWYcowx6CBUzDHIHIRIKcUYc0455iBkDCrmHIQMMgEAAAEOAAABFkKhISsCgDgBAIMkaZqlaaJoaZooeqaoqqIoqqrleabpmaaqeqKpqqaquq6pqq5seZ5peqaoqp4pqqqpqq5rqqrriqpqy6ar2rbpqrbsyrJuu7Ks256qyrapurJuqq5tu7Js664s27rkearqmabreqbpuqrr2rLqurLtmabriqor26bryrLryratyrKua6bpuqKr2q6purLtyq5tu7Ks%2B6br6rbqyrquyrLu27au%2B7KtC7vourauyq6uq7Ks67It67Zs20LJ81TVM03X9UzTdVXXtW3VdW1bM03XNV1XlkXVdWXVlXVddWVb90zTdU1XlWXTVWVZlWXddmVXl0XXtW1Vln1ddWVfl23d92VZ133TdXVblWXbV2VZ92Vd94VZt33dU1VbN11X103X1X1b131htm3fF11X11XZ1oVVlnXf1n1lmHWdMLqurqu27OuqLOu%2BruvGMOu6MKy6bfyurQvDq%2BvGseu%2Brty%2Bj2rbvvDqtjG8um4cu7Abv%2B37xrGpqm2brqvrpivrumzrvm/runGMrqvrqiz7uurKvm/ruvDrvi8Mo%2BvquirLurDasq/Lui4Mu64bw2rbwu7aunDMsi4Mt%2B8rx68LQ9W2heHVdaOr28ZvC8PSN3a%2BAACAAQcAgAATykChISsCgDgBAAYhCBVjECrGIIQQUgohpFQxBiFjDkrGHJQQSkkhlNIqxiBkjknIHJMQSmiplNBKKKWlUEpLoZTWUmotptRaDKG0FEpprZTSWmopttRSbBVjEDLnpGSOSSiltFZKaSlzTErGoKQOQiqlpNJKSa1lzknJoKPSOUippNJSSam1UEproZTWSkqxpdJKba3FGkppLaTSWkmptdRSba21WiPGIGSMQcmck1JKSamU0lrmnJQOOiqZg5JKKamVklKsmJPSQSglg4xKSaW1kkoroZTWSkqxhVJaa63VmFJLNZSSWkmpxVBKa621GlMrNYVQUgultBZKaa21VmtqLbZQQmuhpBZLKjG1FmNtrcUYSmmtpBJbKanFFluNrbVYU0s1lpJibK3V2EotOdZaa0ot1tJSjK21mFtMucVYaw0ltBZKaa2U0lpKrcXWWq2hlNZKKrGVklpsrdXYWow1lNJiKSm1kEpsrbVYW2w1ppZibLHVWFKLMcZYc0u11ZRai621WEsrNcYYa2415VIAAMCAAwBAgAlloNCQlQBAFAAAYAxjjEFoFHLMOSmNUs45JyVzDkIIKWXOQQghpc45CKW01DkHoZSUQikppRRbKCWl1losAACgwAEAIMAGTYnFAQoNWQkARAEAIMYoxRiExiClGIPQGKMUYxAqpRhzDkKlFGPOQcgYc85BKRljzkEnJYQQQimlhBBCKKWUAgAAChwAAAJs0JRYHKDQkBUBQBQAAGAMYgwxhiB0UjopEYRMSielkRJaCylllkqKJcbMWomtxNhICa2F1jJrJcbSYkatxFhiKgAA7MABAOzAQig0ZCUAkAcAQBijFGPOOWcQYsw5CCE0CDHmHIQQKsaccw5CCBVjzjkHIYTOOecghBBC55xzEEIIoYMQQgillNJBCCGEUkrpIIQQQimldBBCCKGUUgoAACpwAAAIsFFkc4KRoEJDVgIAeQAAgDFKOSclpUYpxiCkFFujFGMQUmqtYgxCSq3FWDEGIaXWYuwgpNRajLV2EFJqLcZaQ0qtxVhrziGl1mKsNdfUWoy15tx7ai3GWnPOuQAA3AUHALADG0U2JxgJKjRkJQCQBwBAIKQUY4w5h5RijDHnnENKMcaYc84pxhhzzjnnFGOMOeecc4wx55xzzjnGmHPOOeecc84556CDkDnnnHPQQeicc845CCF0zjnnHIQQCgAAKnAAAAiwUWRzgpGgQkNWAgDhAACAMZRSSimllFJKqKOUUkoppZRSAiGllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimllFJKKaWUUkoppZRSSimVUkoppZRSSimllFJKKaUAIN8KBwD/BxtnWEk6KxwNLjRkJQAQDgAAGMMYhIw5JyWlhjEIpXROSkklNYxBKKVzElJKKYPQWmqlpNJSShmElGILIZWUWgqltFZrKam1lFIoKcUaS0qppdYy5ySkklpLrbaYOQelpNZaaq3FEEJKsbXWUmuxdVJSSa211lptLaSUWmstxtZibCWlllprqcXWWkyptRZbSy3G1mJLrcXYYosxxhoLAOBucACASLBxhpWks8LR4EJDVgIAIQEABDJKOeecgxBCCCFSijHnoIMQQgghREox5pyDEEIIIYSMMecghBBCCKGUkDHmHIQQQgghhFI65yCEUEoJpZRSSucchBBCCKWUUkoJIYQQQiillFJKKSGEEEoppZRSSiklhBBCKKWUUkoppYQQQiillFJKKaWUEEIopZRSSimllBJCCKGUUkoppZRSQgillFJKKaWUUkooIYRSSimllFJKCSWUUkoppZRSSikhlFJKKaWUUkoppQAAgAMHAIAAI%2Bgko8oibDThwgMQAAAAAgACTACBAYKCUQgChBEIAAAAAAAIAPgAAEgKgIiIaOYMDhASFBYYGhweICIkAAAAAAAAAAAAAAAABE9nZ1MABAEAAAAAAAAAU5GJVAIAAABPWCgVAgEBAAA%3D", function(canPlayVorbis) {
-            console.log("Native OGG Vorbis check complete: " + canPlayVorbis);
-        });
-    } else {
-        //console.log("No native <audio> support. Using fallback...");
-        USE_FALLBACK_MP3 = true;
-    }
-    
-    if (HAS_NATIVE_VIDEO) {
-        
-    } else {
-        //console.log("No native <video> support. Using fallback...");
-        USE_FALLBACK_FLV  = true;
-        USE_FALLBACK_H264 = true;
-    }
-
     
     
     if (isIE) {
@@ -130,9 +69,9 @@
         // like audio, video, and source. The workaround is to create
         // said node via JavaScript before the HTML parser finds them
         // in your HTML code.
-        document.createElement("audio");
-        document.createElement("video");
-        document.createElement("source");
+        d.createElement("audio");
+        d.createElement("video");
+        d.createElement("source");
     }
             
     // http://dev.w3.org/html5/spec/video.html#timeranges
@@ -171,7 +110,7 @@
 
     // Browsers other than IE will use the W3C events model to fire media events
     function fireMediaEvent(eventName) {
-        var ev = document.createEvent("Events"),
+        var ev = d.createEvent("Events"),
             func = this["on"+eventName];
         ev.initEvent(eventName, false, false);
         this.__extendEvent(ev, arguments);
@@ -180,65 +119,6 @@
             func.call(this, ev);
         }
     }
-            
-    function resourceSelectionAlgorithm() {
-        this.__networkState = this.NETWORK_NO_SOURCE;
-        // Asynchronously await a stable state
-        var mode;
-        var candidate;
-        if (this.__src) {
-            mode = "attribute";
-        } else {
-            var sources = this.getElementsByTagName("source");
-            for (var i=0; i<sources.length; i++) {
-                if (sources[i].parentNode === this) {
-                    mode = "children";
-                    candidate = sources[i];
-                    break;
-                }
-            }
-        }
-        if (!mode) {
-            this.__networkState = this.NETWORK_EMPTY;
-            return; // Abort!
-        }
-        this.__networkState = this.NETWORK_LOADING;
-        this.__fireMediaEvent("loadstart");
-            
-        if (mode === "attribute") {
-            this.__currentSrc = this.__src;
-            resourceFetchAlgorithm.call(this, this.__currentSrc);
-        } else { // the source elements will be used
-            
-        }
-    }
-            
-    function resourceFetchAlgorithm(url) {
-        if (!this.__fallbackId) {
-
-            // WTF? Properties on String are removed when createSound
-            // is called (FF2 on OSX, doesn't happen on Win)! Need to
-            // look into more deeply, ExternalInterface bug?
-            var string = extend({}, String);
-                    
-            this.__fallbackId = w.HTMLAudioElement.__swf.__createSound(url, this.__volume, this.__muted);
-                    
-            // Copy the removed props from String back...
-            //extend(String, string);
-            for (var k in string) {
-                if (!String[k]) {
-                    String[k] = string[k];
-                    //console.log(k + " was missing from String!");
-                }
-            }
-
-            if (!w.HTMLAudioElement.__swfSounds) w.HTMLAudioElement.__swfSounds = [];
-            w.HTMLAudioElement.__swfSounds.push(this);
-        } else {
-            w.HTMLAudioElement.__swf.__load(url);
-        }
-    }
-
 
     // Accepts a HTMLElement with a settable 'src' property. Returns 
     // the element if it resolves relative paths to absolute of
@@ -252,7 +132,7 @@
     // since it won't make an HTTP request until it's placed in the DOM,
     // some old browsers won't do that, so fall back to an <img>, which WILL
     // fire an HTTP request instantly when it's 'src' is set (bad).
-    var RELATIVE_URL_RESOLVER = resolvesSrc(document.createElement("script")) || new Image();                
+    var RELATIVE_URL_RESOLVER = resolvesSrc(d.createElement("script")) || new Image();                
 
 
     function cloneNode(deep) {
@@ -268,45 +148,42 @@
                 this.src = value;
                 break;
             case "preload":
+                this.preload = value;
                 break;
             case "autoplay":
+                this.autoplay = true;
                 break;
             case "loop":
+                this.loop = true;
                 break;
             case "controls":
+                this.controls = true;
                 break;
         }
         return rtn;
     }
-    function getAttribute() {
-        var rtn = this.__getAttribute(arguments[0]);
-        return rtn;
+    function removeAttribute() {
+        var attr = arguments[0];
+        switch (attr) {
+            case "src":
+                this.src = "";
+                break;
+            case "preload":
+                this.preload = null;
+                break;
+            case "autoplay":
+                this.autoplay = false;
+                break;
+            case "loop":
+                this.loop = false;
+                break;
+            case "controls":
+                this.controls = false;
+                break;
+        }
+        return this.__removeAttribute(attr);
     }
-    function defineGettersSetters(element) {
-        element.__defineGetter__("error",       element.__errorGet);
-        element.__defineGetter__("src",         element.__srcGet);
-        element.__defineGetter__("currentSrc",  element.__currentSrcGet);
-        element.__defineGetter__("networkState",element.__networkStateGet);
-        element.__defineGetter__("readyState",  element.__readyStateGet);
-        element.__defineGetter__("seeking",     element.__seekingGet);
-        element.__defineGetter__("currentTime", element.__currentTimeGet);
-        element.__defineGetter__("startTime",   element.__startTimeGet);
-        element.__defineGetter__("duration",    element.__durationGet);
-        element.__defineGetter__("paused",      element.__pausedGet);
-        element.__defineGetter__("ended",       element.__endedGet);
-        element.__defineGetter__("controls",    element.__controlsGet);
-        element.__defineGetter__("volume",      element.__volumeGet);
-        element.__defineGetter__("muted",       element.__mutedGet);
-        element.__defineGetter__("buffered",    element.__bufferedGet);
-        element.__defineGetter__("played",      element.__playedGet);
-        element.__defineGetter__("seekable",    element.__seekableGet);
-
-        element.__defineSetter__("src",         element.__srcSet);
-        element.__defineSetter__("currentTime", element.__currentTimeSet);
-        element.__defineSetter__("controls",    element.__controlsSet);
-        element.__defineSetter__("volume",      element.__volumeSet);
-        element.__defineSetter__("muted",       element.__mutedSet);
-    }
+    
     function HTMLMediaElement(element) {
         if (element) {
             // Copy the properties from 'this' to the 'element'
@@ -316,7 +193,29 @@
                 // Browser's other than IE need to get the internally
                 // used '__fireMediaEvent' here. IE gets it from the HTC file.
                 element.__fireMediaEvent = fireMediaEvent;
-                defineGettersSetters(element);
+                element.__defineGetter__("error",       element.__errorGet);
+                element.__defineGetter__("src",         element.__srcGet);
+                element.__defineGetter__("currentSrc",  element.__currentSrcGet);
+                element.__defineGetter__("networkState",element.__networkStateGet);
+                element.__defineGetter__("readyState",  element.__readyStateGet);
+                element.__defineGetter__("seeking",     element.__seekingGet);
+                element.__defineGetter__("currentTime", element.__currentTimeGet);
+                element.__defineGetter__("startTime",   element.__startTimeGet);
+                element.__defineGetter__("duration",    element.__durationGet);
+                element.__defineGetter__("paused",      element.__pausedGet);
+                element.__defineGetter__("ended",       element.__endedGet);
+                element.__defineGetter__("controls",    element.__controlsGet);
+                element.__defineGetter__("volume",      element.__volumeGet);
+                element.__defineGetter__("muted",       element.__mutedGet);
+                element.__defineGetter__("buffered",    element.__bufferedGet);
+                element.__defineGetter__("played",      element.__playedGet);
+                element.__defineGetter__("seekable",    element.__seekableGet);
+
+                element.__defineSetter__("src",         element.__srcSet);
+                element.__defineSetter__("currentTime", element.__currentTimeSet);
+                element.__defineSetter__("controls",    element.__controlsSet);
+                element.__defineSetter__("volume",      element.__volumeSet);
+                element.__defineSetter__("muted",       element.__mutedSet);
                             
                 // http://dev.w3.org/html5/spec-author-view/common-microsyntaxes.html#boolean-attributes
                 var src = element.getAttribute("src"),
@@ -352,12 +251,12 @@
             // HTMLMediaElement constructor as well.
             if (!element.__cloneNode) element.__cloneNode = element.cloneNode;
             element.cloneNode = cloneNode;
-            // getAttribute and setAttribute need to look out for
+            // removeAttribute and setAttribute need to look out for
             // specific cases (loop, src, etc.)
             if (!element.__setAttribute) element.__setAttribute = element.setAttribute;
             element.setAttribute = setAttribute;
-            if (!element.__getAttribute) element.__getAttribute = element.getAttribute;
-            element.getAttribute = getAttribute;
+            if (!element.__removeAttribute) element.__removeAttribute = element.removeAttribute;
+            element.removeAttribute = removeAttribute;
         }
     }
     HTMLMediaElement.prototype = {
@@ -397,7 +296,8 @@
 
         // readonly attribute TimeRanges buffered;
         __bufferedGet: function() {
-            
+            var r = new TimeRanges();
+            return r;
         },
 
         // void load();
@@ -414,7 +314,7 @@
             }
             this.playbackRate = this.defaultPlaybackRate;
             this.__error = null;
-            resourceSelectionAlgorithm.call(this);
+            this.__resourceSelectionAlgorithm();
         },
 
         // DOMString canPlayType(in DOMString type);
@@ -449,7 +349,7 @@
             }
             // TODO: Abort any already running 'seeking' instances
             this.__seeking = true;
-            w.HTMLAudioElement.__swf.__setCurrentTime(this.__fallbackId, time);
+            this.__setCT(time);
             this.__fireMediaEvent("timeupdate");
         },
 
@@ -473,12 +373,14 @@
                 
         // readonly attribute TimeRanges played;
         __playedGet: function() {
-            
+            var r = new TimeRanges();
+            return r;
         },
 
         // readonly attribute TimeRanges seekable;
         __seekableGet: function() {
-            
+            var r = new TimeRanges();
+            return r;
         },
                 
         // readonly attribute boolean ended;
@@ -494,7 +396,7 @@
         // void play();
         play: function() {
             if (this.__networkState === this.NETWORK_EMPTY) {
-                resourceSelectionAlgorithm.call(this);
+                this.__resourceSelectionAlgorithm();
             }
             if (this.__ended && this.playbackRate >= 0) {
                 this.currentTime = this.startTime;
@@ -507,20 +409,20 @@
                 } else {
                     this.__fireMediaEvent("playing");
                 }
-                w.HTMLAudioElement.__swf.__play(this.__fallbackId);
+                this.__play();
             }
         },
                 
         // void pause();
         pause: function() {
             if (this.__networkState === this.NETWORK_EMPTY) {
-                resourceSelectionAlgorithm.call(this);
+                this.__resourceSelectionAlgorithm();
             }
             if (this.__paused === false) {
                 this.__paused = true;
                 this.__fireMediaEvent("timeupdate");
                 this.__fireMediaEvent("pause");
-                w.HTMLAudioElement.__swf.__pause(this.__fallbackId);
+                this.__pause();
             }
         },
 
@@ -572,7 +474,7 @@
         __errorCallback: function() {
                     
         },
-        __metadataCallback: function(duration) {
+        __metadataCallback: function(duration, width, height) {
             this.__readyState = this.HAVE_METADATA;
             this.__duration = duration;
             this.__fireMediaEvent("durationchange");
@@ -593,6 +495,38 @@
             }
         },
 
+        __resourceSelectionAlgorithm: function() {
+            this.__networkState = this.NETWORK_NO_SOURCE;
+            // Asynchronously await a stable state
+            var mode;
+            var candidate;
+            if (this.__src) {
+                mode = "attribute";
+            } else {
+                var sources = this.getElementsByTagName("source");
+                for (var i=0; i<sources.length; i++) {
+                    if (sources[i].parentNode === this) {
+                        mode = "children";
+                        candidate = sources[i];
+                        break;
+                    }
+                }
+            }
+            if (!mode) {
+                this.__networkState = this.NETWORK_EMPTY;
+                return; // Abort!
+            }
+            this.__networkState = this.NETWORK_LOADING;
+            this.__fireMediaEvent("loadstart");
+
+            if (mode === "attribute") {
+                this.__currentSrc = this.__src;
+                this.__resourceFetchAlgorithm(this.__currentSrc);
+            } else { // the source elements will be used
+
+            }
+        },
+        
         // This is a simple boolean that the developer can check
         // to determine whether or not this media element is native
         // to the browser, or has been "converted" to a "fallback node".
@@ -605,10 +539,16 @@
         var nativeMedia = w.HTMLMediaElement;
         extend(nativeMedia.prototype, {
             __checkError: function() {
-                var isUnsupported = this.error.code == 4;
-                if (isUnsupported && REGEXP_FILENAME_MP3.test(this.currentSrc || this.src)) {
+                if (this.error.code == 4) {
                     this.removeEventListener("error", this.__checkError, false);
-                    new HTMLAudioElement(this);
+                    // We convert to a fallback after a setTimeout, to let the
+                    // native 'error' event finish dispatching before firing
+                    // the 'fallback' event
+                    var This = this;
+                    setTimeout(function() {
+                        This.__fallback();
+                        This.load();
+                    }, 0);
                 }
             }
         });
@@ -616,7 +556,12 @@
     } else {
         w.HTMLMediaElement = HTMLMediaElement;
     }
-            
+
+
+
+
+
+
 
 
 
@@ -633,6 +578,48 @@
     }
     HTMLAudioElement.prototype = new HTMLMediaElement;
     extend(HTMLAudioElement.prototype, {
+
+        __play: function() {
+            w.HTMLAudioElement.__callFlash("play", [this.__fallbackId]);
+        },
+        
+        __pause: function() {
+            w.HTMLAudioElement.__callFlash("pause", [this.__fallbackId]);
+        },
+        
+        __setCT: function(time) {
+            w.HTMLAudioElement.__callFlash("setCurrentTime", [this.__fallbackId, time]);
+        },
+        
+        __resourceFetchAlgorithm: function(url) {
+            if (!this.__fallbackId) {
+
+                if (!w.HTMLAudioElement.__swfSounds) w.HTMLAudioElement.__swfSounds = [];
+                this.__fallbackId = w.HTMLAudioElement.__swfSounds.length;
+                w.HTMLAudioElement.__swfSounds.push(this);
+
+                // WTF? Properties on String are removed when createSound
+                // is called (FF2 on OSX, doesn't happen on Win)! Need to
+                // look into more deeply, ExternalInterface bug?
+                var string = extend({}, String);
+
+                w.HTMLAudioElement.__callFlash("createSound", [url, this.__volume, this.__muted]);
+
+                // Copy the removed props from String back...
+                //extend(String, string);
+                for (var k in string) {
+                    if (!String[k]) {
+                        String[k] = string[k];
+                        //console.log(k + " was missing from String!");
+                    }
+                }
+
+            } else {
+                w.HTMLAudioElement.__callFlash("load", [this.__fallbackId, url]);
+            }
+        },
+
+        
         toString: function() {
             return "[object HTMLAudioElement]";
         }
@@ -640,33 +627,52 @@
 
 
     if (HAS_NATIVE_AUDIO) {
-        var nativeAudio = w.HTMLAudioElement,
-            nativeLoad = nativeAudio.prototype.load;
+        var nativeAudio = w.HTMLAudioElement;
         extend(nativeAudio.prototype, {
             isNative: true,
-            load: function() {
-                //console.log("calling overriden HTMLAudioElement#load");
-                nativeLoad.apply(this, arguments);
+            __fallback: function() {
+                new HTMLAudioElement(this);
             }
         });
+        
+        // Make 'document.createElement()' return a native <audio>
+        // node, but already listening for an 'error' event to fallback
+        var nativeCreateElement = d.createElement;
+        d.createElement = function() {
+            var ele = nativeCreateElement.apply(this, arguments);
+            if (ele.nodeName.toLowerCase() === "audio") {
+                ele.addEventListener("error", ele.__checkError, false);
+            }
+            return ele;
+        };
+        
+        // Extend the native "Audio" constructor to return an <audio>
+        // node that is already listening for an 'error' event to fallback
+        var nativeAudio = w.Audio;
+        function Audio(src) {
+            var a = new nativeAudio();
+            a.addEventListener("error", a.__checkError, false);
+            if (src) a.src = src;
+            return a;
+        }
+        Audio.prototype = nativeAudio.prototype;
+        w.Audio = Audio;
+        
     } else {
 
+        // Make our implementation visible to window
         w.HTMLAudioElement = HTMLAudioElement;
 
-
         // Make 'document.createElement()' return proper <audio> nodes
-        var nativeCreateElement = document.createElement, useApply = true;
+        var nativeCreateElement = d.createElement, useApplyAudio = true;
         try {
-            nativeCreateElement.apply(document, ["div"]);
-        } catch(e) {
-            // IE6 doesn't like calling this with 'apply',
-            // but works fine if called directly.
-            useApply = false;
+            nativeCreateElement.apply(d, ["div"]);
+        } catch (ex) {
+            useApplyAudio = false;
         }
-        document.createElement = function() {
-            var ele = useApply ? nativeCreateElement.apply(this, arguments) : nativeCreateElement(arguments[0]),
-                nodeName = ele.nodeName.toLowerCase();
-            if (nodeName === "audio") new HTMLAudioElement(ele);
+        d.createElement = function() {
+            var ele = useApplyAudio ? nativeCreateElement.apply(this, arguments) : nativeCreateElement(arguments[0]);
+            if (ele.nodeName.toLowerCase() === "audio") new HTMLAudioElement(ele);
             return ele;
         };
 
@@ -677,13 +683,31 @@
             //if (!(this instanceof arguments.callee)) {
             //    throw new TypeError("DOM object constructor cannot be called as a function.");
             //}
-            var a = document.createElement("audio"), src = arguments[0];
+            var a = d.createElement("audio"), src = arguments[0];
             a.preload = "auto";
             if (src !== undefined) a.src = String(src);
             return a;
         }
         Audio.prototype = HTMLAudioElement.prototype;
         w.Audio = Audio;
+    }
+    
+    w.HTMLAudioElement.__callQueue = [];
+    w.HTMLAudioElement.__callFlash = function(funcName, args) {
+        if (w.HTMLAudioElement.__swf) {
+            w.HTMLAudioElement.__swf["__" + funcName].apply(w.HTMLAudioElement.__swf, args);
+        } else {
+            w.HTMLAudioElement.__callQueue.push({func:funcName, args:args});
+        }
+    }
+    w.HTMLAudioElement.__swfLoaded = function() {
+        console.log("'HtmlAudio.swf' embedded, called from EI");
+        var i=0, l=w.HTMLAudioElement.__callQueue.length, command;
+        for (;i<l;i++) {
+            command = w.HTMLAudioElement.__callQueue[i];
+            console.log("calling '" + command.func + "' with " + command.args);
+            w.HTMLAudioElement.__swf["__" + command.func].apply(w.HTMLAudioElement.__swf, command.args);
+        }
     }
     // We want to augment both the native and our custom 'canPlayType'
     // functions to check the argument for valid MP3 mime-types.
@@ -697,29 +721,235 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     function HTMLVideoElement() {
         HTMLMediaElement.apply(this, arguments);
-        return arguments[0];
+        var element = arguments[0];
+        element.__callQueue = [];
+        
+        if (!isIE) {
+            element.__defineGetter__("width",       element.__widthGet);
+            element.__defineGetter__("height",      element.__heightGet);
+            element.__defineGetter__("videoWidth",  element.__videoWidthGet);
+            element.__defineGetter__("videoHeight", element.__videoHeightGet);
+            element.__defineGetter__("poster",      element.__posterGet);
+
+            element.__defineSetter__("width",       element.__widthSet);
+            element.__defineSetter__("height",      element.__heightSet);
+            element.__defineSetter__("poster",      element.__posterSet);
+        } else {
+            element.addBehavior(w.HTMLVideoElement.htcPath);
+        }
+
+        element.__fireMediaEvent("fallback");
+        return element;
     }
     HTMLVideoElement.prototype = new HTMLMediaElement;
     extend(HTMLVideoElement.prototype, {
+        __width: -1,
+        __widthGet: function() {
+            return this.__width;
+        },
+        __widthSet: function(width) {
+            this.__width = width;
+        },
+        
+        __height: -1,
+        __heightGet: function() {
+            return this.__height;
+        },
+        __heightSet: function(height) {
+            this.__height = height;
+        },
+        
+        __videoWidth: 0,
+        __videoWidthGet: function() {
+            return this.__videoWidth;
+        },
+        
+        __videoHeight: 0,
+        __videoHeightGet: function() {
+            return this.__videoHeight;
+        },
+        
+        __poster: "",
+        __posterGet: function() {
+            return this.__poster;
+        },
+        __posterSet: function(src) {
+            this.__poster = src;
+        },
+        
+        __currentTimeGet: function() {
+            return this.__fallbackId != undefined ?
+                this.__callFlash("getCurrentTime") :
+                0;
+        },
+        __setCT: function(time) {
+            //this.__callFlash("setCurrentTime", [time]);
+        },
+        __play: function() {
+            this.__callFlash("play");
+        },
+        
+        __pause: function() {
+            this.__callFlash("pause");
+        },
+        __resourceFetchAlgorithm: function(url) {
+            if (this.__fallbackId == undefined) {
+
+                if (!w.HTMLVideoElement.__swfVids) w.HTMLVideoElement.__vids = [];
+                this.__fallbackId = w.HTMLVideoElement.__vids.length;
+                w.HTMLVideoElement.__vids.push(this);
+
+
+                var container = d.createElement("div"),
+                    container2 = d.createElement("div"),
+                    id = "htmlmedia-"+ this.__fallbackId,
+                    flashvars = {
+                        id: this.__fallbackId,
+                        src: url,
+                        volume: this.__volume,
+                        muted: this.__muted
+                    },
+                    params = {
+                        wmode: "opaque",
+                        allowScriptAccess: "always"
+                    },
+                    attributes = {
+                        //style: "width:100px;height:100px;"
+                    };
+                container.id = id;
+                container2.appendChild(container);
+                d.body.appendChild(container2);
+                swfobject.embedSWF(w.HTMLVideoElement.swfPath, id, 300, 150, "10", false, flashvars, params, attributes);
+
+            } else {
+                this.__swf.__load(url);
+            }
+        },
+            
+        __callFlash: function(funcName, args) {
+            if (this.__swf) {
+                this.__swf["__" + funcName].apply(this.__swf, args || []);
+            } else {
+                this.__callQueue.push({ func:funcName, args:args });
+            }
+        },
+        
+        __getCanvas: function() {
+            var n1= new Date().getTime();
+            var data = this.__swf.__getImageData();
+            if (data) {
+                var canvas = d.createElement("canvas");
+                canvas.width = this.__videoWidth;
+                canvas.height = this.__videoHeight;
+                var ctx = canvas.getContext("2d");
+                var id = ctx.getImageData(0, 0, this.__videoWidth, this.__videoHeight);
+                var l = data.length;
+                var pixel;
+                for (var i=0; i<l; i++) {
+                    pixel = data[i];
+                    id.data[i*4+0] = pixel >> 16 & 0xFF;// red
+                    id.data[i*4+1] = pixel >> 8 & 0xFF; // green
+                    id.data[i*4+2] = pixel & 0xFF;      // blue
+                    id.data[i*4+3] = pixel >> 24 & 0xFF;// alpha
+                }
+                ctx.putImageData(id, 0, 0);
+                var n2= new Date().getTime();
+                console.log("time: " + (n2-n1));
+                return canvas;
+            }
+        },
+        
+        __metadataCallback: function(duration, width, height) {
+            HTMLMediaElement.prototype.__metadataCallback.call(this, duration);
+            this.__videoWidth = width;
+            this.__videoHeight = height;
+        },
+        __swfInit: function() {
+            this.__swf = d.getElementById("htmlmedia-"+this.__fallbackId);
+            var i=0, l=this.__callQueue.length, command;
+            for (;i<l;i++) {
+                command = this.__callQueue[i];
+                console.log("calling '" + command.func + "' with " + command.args);
+                this.__swf["__" + command.func].apply(this.__swf, command.args);
+            }
+        },
+        
         toString: function() {
             return "[object HTMLVideoElement]";
         }
     });
     if (HAS_NATIVE_VIDEO) {
         var nativeVideo = w.HTMLVideoElement;
-        nativeVideo.prototype.isNative = true;
+        extend(nativeVideo.prototype, {
+            isNative: true,
+            __fallback: function() {
+                new HTMLVideoElement(this);
+            }
+        });
+
+        // Make 'document.createElement()' return a native <video>
+        // node, but already listening for an 'error' event to fallback
+        var ce = d.createElement;
+        d.createElement = function() {
+            var ele = ce.apply(this, arguments);
+            if (ele.nodeName.toLowerCase() === "video") {
+                ele.addEventListener("error", ele.__checkError, false);
+            }
+            return ele;
+        };
+
     } else {
+        // Make our implementation visible to window
         w.HTMLVideoElement = HTMLVideoElement;
+        
+        // Make 'document.createElement()' return proper <video> nodes
+        var nativeCreateElement = d.createElement;
+        d.createElement = function() {
+            var ele = nativeCreateElement(arguments[0]),
+                nodeName = ele.nodeName.toLowerCase();
+            if (nodeName === "video") new HTMLVideoElement(ele);
+            return ele;
+        };
+
     }
     
+    if (HAS_CANVAS) {
+        var drawImage = CanvasRenderingContext2D.prototype.drawImage;
+        CanvasRenderingContext2D.prototype.drawImage = function() {
+            if (arguments[0].__getCanvas)
+                arguments[0] = arguments[0].__getCanvas();
+            return drawImage.apply(this, arguments);
+        }
+    }
+
+
+
+
+
+
+
+
+
     
     w.HTMLMediaElement.setPath = function(path) {
         // First ensure the path ends with a '/'
         var d = path.length - 1;
-        if (!(d >= 0 && path.indexOf('/', d) === d)) {
-            path = path + '/';
+        if (d === 0 || path.indexOf('/', d) !== d) {
+            path += '/';
         }
         extend(w.HTMLAudioElement, {
             htcPath: path + "HtmlAudio.htc",
@@ -731,56 +961,48 @@
         });
     }
             
-    // Embed the fallback SWF into the page
+    // Embed the fallback <audio> SWF onto the page
     function embedSwf() {
-        console.log("embedding SWF at: " + w.HTMLAudioElement.swfPath);
-        var container = document.createElement("div"),
+        //console.log("embedding SWF at: " + w.HTMLAudioElement.swfPath);
+        var container = d.createElement("div"),
             id = "HtmlAudio",
             flashvars = {},
             params = {
+                wmode: "transparent",
                 allowScriptAccess: "always"
             },
             attributes = {
-                style: "position:fixed; top:0px; right:0px;"
+                style: "position:fixed;top:0px;right:0px;"
             };
         container.id = id;
-        document.body.appendChild(container);
+        d.body.appendChild(container);
         swfobject.embedSWF(w.HTMLAudioElement.swfPath, id, 1, 1, "10", false, flashvars, params, attributes);
     }
-    
-    function swfLoaded() {
-        console.log("'HtmlAudio.swf' embedded, called from EI");
-        // TODO: Process fallback queue.
-    }
-    w.HTMLAudioElement.__swfLoaded = swfLoaded;
         
     function fixHtmlTags() {
-        var audioNodes = document.getElementsByTagName("audio"),
-            videoNodes = document.getElementsByTagName("video"), i, node;
-        for (i=0; i<audioNodes.length; i++) {
-            node = audioNodes[i];
-            if (!HAS_NATIVE_AUDIO) {
+        var audioNodes = d.getElementsByTagName("audio"),
+            videoNodes = d.getElementsByTagName("video"), i, node;
+        
+        function fixNode(node, nodeName) {
+            node.removeAttribute("_moz-userdefined");
+            if (!HAS_NATIVE_AUDIO && nodeName == "audio") {
                 new HTMLAudioElement(node);
-                node.removeAttribute("_moz-userdefined");
+            } else if (!HAS_NATIVE_VIDEO && nodeName == "video") {
+                new HTMLVideoElement(node);
             } else {
+                // Has native implementation, check/listen for an 'error'
                 if (node.error) {
                     node.__checkError();
                 } else {
                     node.addEventListener("error", node.__checkError, false);
                 }
-                //HTMLAudioElement.__attemptFallback(audioNodes[i]);
             }
         }
-                
-        for (i=0; i<videoNodes.length; i++) {
-            node = videoNodes[i];
-            if (!HAS_NATIVE_VIDEO) {
-                new HTMLVideoElement(node);
-                node.removeAttribute("_moz-userdefined");
-            } else {
-                        
-            }
-        }
+        
+        for (i=0; i<audioNodes.length; i++)
+            fixNode(audioNodes[i], "audio");
+        for (i=0; i<videoNodes.length; i++)
+            fixNode(videoNodes[i], "audio");
     }
             
     
@@ -791,7 +1013,7 @@
         if (isIE) {
             // For IE to fire custom events and use real getters and setters,
             // they must be defined in an HTC file and applied via CSS 'behavior'.
-            var style = document.createElement("style");
+            var style = d.createElement("style");
             style.type = "text/css";
             style.styleSheet.cssText = "audio, video { behavior:url("+w.HTMLAudioElement.htcPath+"); } video { behavior:url("+w.HTMLVideoElement.htcPath+"); }";
             HEAD.appendChild(style);
@@ -801,22 +1023,22 @@
     }
     
     
-    if (document.body) {
-        console.log("'document.body' exists! Script inserted dynamically or outside <head>.");
+    if (d.body) {
+        //console.log("'document.body' exists! Script inserted dynamically or outside <head>.");
         init();
     } else {
-        console.log("'document.body' not ready, we'll wait for DOMContentLoaded!");
-        if (document.addEventListener) {
-            document.addEventListener('DOMContentLoaded', init, false);
+        //console.log("'document.body' not ready, we'll wait for DOMContentLoaded!");
+        if (d.addEventListener) {
+            d.addEventListener('DOMContentLoaded', init, false);
         }
         (function() {
             /*@cc_on
             try {
-                document.body.doScroll('up');
+                d.body.doScroll('up');
                 return init();
             } catch(e) {}
             /*@if (false) @*/
-            if (/loaded|complete/.test(document.readyState)) return init();
+            if (/loaded|complete/.test(d.readyState)) return init();
             /*@end @*/
             if (!init.done) setTimeout(arguments.callee, 30);
         })();
@@ -827,5 +1049,5 @@
         }
     }
 
-})(window);
+})(this, document);
 HTMLMediaElement.setPath("");
