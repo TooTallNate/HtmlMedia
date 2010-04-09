@@ -21,6 +21,7 @@
  * THE SOFTWARE.
  */
 <PUBLIC:COMPONENT NAME="HTMLVideoElement" LIGHTWEIGHT=true>
+    <PUBLIC:ATTACH EVENT="oncontentready" ONEVENT="__initialize()"/>
 
     <PUBLIC:PROPERTY NAME="width" GET="widthGet" PUT="widthSet" />
     <PUBLIC:PROPERTY NAME="height" GET="heightGet" PUT="heightSet" />
@@ -44,6 +45,12 @@
         function posterSet(v) {
             this.__posterSet(v);
         }
+
+        function __initialize() {
+            if (this.vl) {
+                this.vl();
+            }
+  	    }
     </SCRIPT>
 
 </PUBLIC:COMPONENT>

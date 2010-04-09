@@ -21,15 +21,15 @@
  * THE SOFTWARE.
  */
 (function(w,d) {
-    var FLASH_SUPPORTED_AUDIO = /\.(mp3|mp4|m4a|mp4a|aac)(\?.*)?$/i,
-        FLASH_SUPPORTED_VIDEO = /\.(flv|mp4|m4v|mp4v|mov|3gp|3g2)(\?.*)?$/i,
-        REGEXP_MIMETYPE_MP3 = /^audio\/(?:x-)?(?:mp(?:eg|3))\s*;?/i,
-        REGEXP_MIMETYPE_FLV = /^video\/(?:x-)?(?:flv)\s*;?/i,
+    var SUPPORTED_AUDIO = /\.(mp3|mp4|m4a|mp4a|aac)(\?.*)?$/i,
+        SUPPORTED_VIDEO = /\.(flv|mp4|m4v|mp4v|mov|3gp|3g2)(\?.*)?$/i,
+        //REGEXP_MIMETYPE_MP3 = /^audio\/(?:x-)?(?:mp(?:eg|3))\s*;?/i, don't need these (for now)
+        //REGEXP_MIMETYPE_FLV = /^video\/(?:x-)?(?:flv)\s*;?/i,        don't need these (for now)
         HAS_NATIVE_AUDIO  = !!w.HTMLAudioElement,
         HAS_NATIVE_VIDEO  = !!w.HTMLVideoElement,
         HEAD = d.getElementsByTagName("head")[0],
         isIE = !!d.attachEvent && Object.prototype.toString.call(w.opera) !== '[object Opera]',
-        HAS_CANVAS = CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.getImageData && CanvasRenderingContext2D.prototype.putImageData,
+        HAS_CANVAS = !!w.CanvasRenderingContext2D && !!w.CanvasRenderingContext2D.prototype.getImageData && !!w.CanvasRenderingContext2D.prototype.putImageData,
         MEDIA_EVENTS = [
             "loadstart",
             "progress",
@@ -54,7 +54,10 @@
             "durationchange",
             "volumechange",
             "fallback" // Non-standard event fired when a node falls back to Flash
-        ];
+        ],
+        SCRIPT = findScriptNode(),
+        PARAMS = getScriptParams(SCRIPT);
+
 
     // Copies the properties from 'source' onto 'destination'
     function extend(destination, source) {
@@ -63,8 +66,39 @@
         return destination;
     }
     
+    //Finds the script node that is executing this code.
+    function findScriptNode() {
+        var scriptNodes = document.getElementsByTagName("script"), i = 0;
+        for (; i < scriptNodes.length; i++)
+            if (scriptNodes[i].src.match(/HtmlMedia\.js(\?.*)?$/))
+                return scriptNodes[i];
+        return null;
+    }
+
+    // Gets the query string found after the src in the script node,
+    // and packages the query string into an object for reusal.
+    function getScriptParams(script) {
+        var index = script.src.indexOf('?'), i=0, rtn = {};
+        if (index > -1) {
+            var p = script.src.substring(index+1).split('&'), cur;
+            for (; i<p.length; i++) {
+                cur = p[i].split('=');
+                if (cur.length == 2) {
+                    rtn[cur[0]] = cur[1];
+                }
+            }
+        }
+        return rtn;
+    }
     
+            
+
     if (isIE) {
+        // We need to use these two flags to ensure that we wait on creating
+        // any HTMLAudioElements or HTMLVideoElements until the HTCs load
+        var HTC_LOADED_AUDIO = false,
+            HTC_LOADED_VIDEO = false;
+
         // IE behaves strangely for html tags it doesn't recognize
         // like audio, video, and source. The workaround is to create
         // said node via JavaScript before the HTML parser finds them
@@ -184,6 +218,9 @@
         return this.__removeAttribute(attr);
     }
     
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //// HTMLMediaElement Implementation /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     function HTMLMediaElement(element) {
         if (element) {
             // Copy the properties from 'this' to the 'element'
@@ -442,7 +479,7 @@
             } else if (this.__volume !== vol) {
                 this.__volume = vol;
                 if (this.__fallbackId != undefined) {
-                    w.HTMLAudioElement.__swf.__setVolume(this.__fallbackId, vol);
+                    this.__setVol(vol);
                 }
                 this.__fireMediaEvent("volumechange");
             }
@@ -474,7 +511,7 @@
         __errorCallback: function() {
                     
         },
-        __metadataCallback: function(duration, width, height) {
+        __metadataCallback: function(duration) {
             this.__readyState = this.HAVE_METADATA;
             this.__duration = duration;
             this.__fireMediaEvent("durationchange");
@@ -522,8 +559,8 @@
             if (mode === "attribute") {
                 this.__currentSrc = this.__src;
                 this.__resourceFetchAlgorithm(this.__currentSrc);
-            } else { // the source elements will be used
-
+            } else {
+                 // the source elements will be used, not yet implemented
             }
         },
         
@@ -531,6 +568,9 @@
         // to determine whether or not this media element is native
         // to the browser, or has been "converted" to a "fallback node".
         isNative: false,
+        // The toString override. Though for some reason, on EVERY browser
+        // I tried, doing: element + ' some string' wouldn't call this
+        // override. You need to explicity call: String(element) + ' some string'
         toString: function() {
             return "[object HTMLMediaElement]";
         }
@@ -542,7 +582,7 @@
                 if (this.error.code == 4) {
                     this.removeEventListener("error", this.__checkError, false);
                     // We convert to a fallback after a setTimeout, to let the
-                    // native 'error' event finish dispatching before firing
+                    // native 'error' event finishes dispatching before firing
                     // the 'fallback' event
                     var This = this;
                     setTimeout(function() {
@@ -570,11 +610,14 @@
 
 
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //// HTMLAudioElement Implementation /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     function HTMLAudioElement() {
         HTMLMediaElement.apply(this, arguments);
-        var ele = arguments[0];
-        ele.__fireMediaEvent("fallback");
-        return ele;
+        var e = arguments[0];
+        e.__fireMediaEvent("fallback");
+        return e;
     }
     HTMLAudioElement.prototype = new HTMLMediaElement;
     extend(HTMLAudioElement.prototype, {
@@ -589,6 +632,10 @@
         
         __setCT: function(time) {
             w.HTMLAudioElement.__callFlash("setCurrentTime", [this.__fallbackId, time]);
+        },
+        
+        __setVol: function(vol) {
+            w.HTMLAudioElement.__callFlash("setVolume", [this.__fallbackId, vol]);
         },
         
         __resourceFetchAlgorithm: function(url) {
@@ -618,7 +665,6 @@
                 w.HTMLAudioElement.__callFlash("load", [this.__fallbackId, url]);
             }
         },
-
         
         toString: function() {
             return "[object HTMLAudioElement]";
@@ -676,13 +722,8 @@
             return ele;
         };
 
-
-
         // The HTMLAudioElement has a convience constructor: Audio.
         function Audio() {
-            //if (!(this instanceof arguments.callee)) {
-            //    throw new TypeError("DOM object constructor cannot be called as a function.");
-            //}
             var a = d.createElement("audio"), src = arguments[0];
             a.preload = "auto";
             if (src !== undefined) a.src = String(src);
@@ -701,12 +742,22 @@
         }
     }
     w.HTMLAudioElement.__swfLoaded = function() {
-        console.log("'HtmlAudio.swf' embedded, called from EI");
-        var i=0, l=w.HTMLAudioElement.__callQueue.length, command;
+        //console.log("'HtmlAudio.swf' embedded, called from EI");
+        var i=0,
+            funcs = ["createSound","load","play","pause","setMuted","setVolume","getCurrentTime","setCurrentTime"],
+            l=funcs.length,
+            command;
         for (;i<l;i++) {
+            // In some older browsers (FF2), EI functions aren't instances of Function,
+            // and therefore don't have 'apply', which we need and use in HtmlMedia
+            w.HTMLAudioElement.__swf["__"+funcs[i]].apply = Function.prototype.apply;
+        }
+        for (i=0;i<l;i++) {
+            // If there were any attempted EI calls before the SWF loaded, then now is
+            // the time to process those calls
             command = w.HTMLAudioElement.__callQueue[i];
             console.log("calling '" + command.func + "' with " + command.args);
-            w.HTMLAudioElement.__swf["__" + command.func].apply(w.HTMLAudioElement.__swf, command.args);
+            w.HTMLAudioElement.__swf["__"+command.func].apply(w.HTMLAudioElement.__swf, command.args);
         }
     }
     // We want to augment both the native and our custom 'canPlayType'
@@ -730,9 +781,9 @@
 
 
 
-
-
-
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //// HTMLVideoElement Implementation /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     function HTMLVideoElement() {
         HTMLMediaElement.apply(this, arguments);
         var element = arguments[0];
@@ -751,6 +802,11 @@
         } else {
             element.addBehavior(w.HTMLVideoElement.htcPath);
         }
+
+        if (!element.style.display)
+            element.style.display = "inline-block";
+        if (!element.style.display)
+            element.style.display = "block";
 
         element.__fireMediaEvent("fallback");
         return element;
@@ -797,7 +853,10 @@
                 0;
         },
         __setCT: function(time) {
-            //this.__callFlash("setCurrentTime", [time]);
+            this.__callFlash("setCurrentTime", [time]);
+        },
+        __setVol: function(vol) {
+            this.__callFlash("setVolume", [vol]);
         },
         __play: function() {
             this.__callFlash("play");
@@ -815,7 +874,6 @@
 
 
                 var container = d.createElement("div"),
-                    container2 = d.createElement("div"),
                     id = "htmlmedia-"+ this.__fallbackId,
                     flashvars = {
                         id: this.__fallbackId,
@@ -831,8 +889,7 @@
                         //style: "width:100px;height:100px;"
                     };
                 container.id = id;
-                container2.appendChild(container);
-                d.body.appendChild(container2);
+                d.body.appendChild(container);
                 swfobject.embedSWF(w.HTMLVideoElement.swfPath, id, 300, 150, "10", false, flashvars, params, attributes);
 
             } else {
@@ -849,7 +906,7 @@
         },
         
         __getCanvas: function() {
-            var n1= new Date().getTime();
+            //var n1= new Date().getTime();
             var data = this.__swf.__getImageData();
             if (data) {
                 var canvas = d.createElement("canvas");
@@ -867,8 +924,8 @@
                     id.data[i*4+3] = pixel >> 24 & 0xFF;// alpha
                 }
                 ctx.putImageData(id, 0, 0);
-                var n2= new Date().getTime();
-                console.log("time: " + (n2-n1));
+                //var n2= new Date().getTime();
+                //console.log("time: " + (n2-n1));
                 return canvas;
             }
         },
@@ -877,13 +934,24 @@
             HTMLMediaElement.prototype.__metadataCallback.call(this, duration);
             this.__videoWidth = width;
             this.__videoHeight = height;
+            if (this.__width == -1 && this.__height == -1) {
+                this.style.width = this.__swf.style.width = width + "px";
+                this.style.height = this.__swf.style.height = height + "px";
+            }
         },
         __swfInit: function() {
             this.__swf = d.getElementById("htmlmedia-"+this.__fallbackId);
-            var i=0, l=this.__callQueue.length, command;
+            var i=0,
+                funcs = ["load","play","pause","setMuted","setVolume","getCurrentTime","setCurrentTime","getImageData"],
+                l=funcs.length,
+                command;
             for (;i<l;i++) {
+                this.__swf["__"+funcs[i]].apply = Function.prototype.apply;
+            }
+            l = this.__callQueue.length;
+            for (i=0;i<l;i++) {
                 command = this.__callQueue[i];
-                console.log("calling '" + command.func + "' with " + command.args);
+                //console.log("calling '" + command.func + "' with " + command.args);
                 this.__swf["__" + command.func].apply(this.__swf, command.args);
             }
         },
@@ -917,9 +985,14 @@
         w.HTMLVideoElement = HTMLVideoElement;
         
         // Make 'document.createElement()' return proper <video> nodes
-        var nativeCreateElement = d.createElement;
+        var nativeCreateElementV = d.createElement, useApplyVideo = true;
+        try {
+            nativeCreateElementV.apply(d, ["div"]);
+        } catch (ex) {
+            useApplyVideo = false;
+        }
         d.createElement = function() {
-            var ele = nativeCreateElement(arguments[0]),
+            var ele = useApplyVideo ? nativeCreateElementV.apply(this, arguments) : nativeCreateElementV(arguments[0]),
                 nodeName = ele.nodeName.toLowerCase();
             if (nodeName === "video") new HTMLVideoElement(ele);
             return ele;
@@ -927,6 +1000,11 @@
 
     }
     
+    // We need to augment the native Context2D#drawImage for the
+    // <canvas> to render our fallback <video> nodes (by passing
+    // large amounts of pixel data through Flash's ExternalInterface)
+    // We assume that any browser intelligent enough to support <canvas>
+    // also exposes CanvasRenderingContext2D and CanvasRenderingContext2D.prototype
     if (HAS_CANVAS) {
         var drawImage = CanvasRenderingContext2D.prototype.drawImage;
         CanvasRenderingContext2D.prototype.drawImage = function() {
@@ -941,26 +1019,70 @@
 
 
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //// Page Initialization Stuff ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-
-    
-    w.HTMLMediaElement.setPath = function(path) {
+    // Deal with the location of dependant files on the web server.
+    // If the <script> src ends with ?path=html-media-files, then
+    // we need to know the relative path before requesting any dependant files
+    if (PARAMS.path) {
         // First ensure the path ends with a '/'
-        var d = path.length - 1;
-        if (d === 0 || path.indexOf('/', d) !== d) {
-            path += '/';
+        var pathLen = PARAMS.path.length - 1;
+        if (pathLen === 0 || PARAMS.path.indexOf('/', pathLen) !== pathLen) {
+            PARAMS.path += '/';
         }
-        extend(w.HTMLAudioElement, {
-            htcPath: path + "HtmlAudio.htc",
-            swfPath: path + "HtmlAudio.swf"
-        });
-        extend(w.HTMLVideoElement, {
-            htcPath: path + "HtmlVideo.htc",
-            swfPath: path + "HtmlVideo.swf"
-        });
+    } else {
+        // Default to the same directory as the current document
+        PARAMS.path = "";
     }
-            
+    extend(w.HTMLAudioElement, {
+        htcPath: PARAMS.path + "HtmlAudio.htc",
+        swfPath: PARAMS.path + "HtmlAudio.swf"
+    });
+    extend(w.HTMLVideoElement, {
+        htcPath: PARAMS.path + "HtmlVideo.htc",
+        swfPath: PARAMS.path + "HtmlVideo.swf"
+    });
+    
+    // Deal with if the dev included an 'onready' function to the
+    // <script> node, or the name of a function in the params.
+    var onready;
+    if (PARAMS.onready) {
+        onready = PARAMS.onready;
+    } else {
+        onready = SCRIPT.getAttribute("onready");
+        if (onready) {
+            if (typeof onready !== "function") {
+                onready = new Function(onready);
+            }
+        } else {
+            onready = null;
+        }
+    }
+
+
+    if (isIE) {
+        // For IE to fire custom events and use real getters and setters,
+        // they must be defined in an HTC file and applied via the 'addBehavior'
+        // function. But first we must preload the HTC files in memory, so that
+        // subsequent calls to 'addBehavior' on <audio> or <video> nodes are synchronous
+        var htcLoader = d.createElement("div");
+        htcLoader.al = function() {
+            // Audio HTC loaded
+            HTC_LOADED_AUDIO = true;
+            init();
+        }
+        htcLoader.vl = function() {
+            // Video HTC loaded
+            HTC_LOADED_VIDEO = true;
+            init();
+        }
+        htcLoader.addBehavior(w.HTMLAudioElement.htcPath);
+        htcLoader.addBehavior(w.HTMLVideoElement.htcPath);
+    }
+
+
     // Embed the fallback <audio> SWF onto the page
     function embedSwf() {
         //console.log("embedding SWF at: " + w.HTMLAudioElement.swfPath);
@@ -1002,24 +1124,32 @@
         for (i=0; i<audioNodes.length; i++)
             fixNode(audioNodes[i], "audio");
         for (i=0; i<videoNodes.length; i++)
-            fixNode(videoNodes[i], "audio");
+            fixNode(videoNodes[i], "video");
     }
-            
     
     function init() {
+        if (isIE && (!HTC_LOADED_AUDIO || !HTC_LOADED_VIDEO)) return;
+        if (!d.body) return;
         if (arguments.callee.done) return;
         arguments.callee.done = true;
 
-        if (isIE) {
-            // For IE to fire custom events and use real getters and setters,
-            // they must be defined in an HTC file and applied via CSS 'behavior'.
-            var style = d.createElement("style");
-            style.type = "text/css";
-            style.styleSheet.cssText = "audio, video { behavior:url("+w.HTMLAudioElement.htcPath+"); } video { behavior:url("+w.HTMLVideoElement.htcPath+"); }";
-            HEAD.appendChild(style);
-        }
+        // First begin loading the SWF that all <audio> nodes share,
+        // as it can be invisible Flash. <video> nodes require their own
+        // SWF per node, and get embedded in "resource fetch algorithm".
         embedSwf();
+        // Scan the document for any <video> or <audio> node present
+        // in the original HTML source, and prepare them for use.
         fixHtmlTags();
+        // Now that all the <audio> and <video> nodes are fixed, the dev
+        // can interact with the nodes on the page via JavaScript.
+        // We need to call 'onready' as this is the earliest point that
+        // they can safely interact with them.
+        if (onready) {
+            if (typeof onready === "function")
+                onready();
+            else // It's a String, the name of the function to call
+                w[onready]();
+        }
     }
     
     
@@ -1033,10 +1163,7 @@
         }
         (function() {
             /*@cc_on
-            try {
-                d.body.doScroll('up');
-                return init();
-            } catch(e) {}
+            try { d.body.doScroll('up'); return init(); } catch(e) {}
             /*@if (false) @*/
             if (/loaded|complete/.test(d.readyState)) return init();
             /*@end @*/
@@ -1048,6 +1175,4 @@
             w.attachEvent('onload', init);
         }
     }
-
 })(this, document);
-HTMLMediaElement.setPath("");

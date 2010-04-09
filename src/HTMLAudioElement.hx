@@ -59,9 +59,10 @@ class HTMLAudioElement extends HTMLMediaElement {
     }
     
     public function play() {
+        if (this.lastPosition == this.sound.length) this.lastPosition = 0;
         this.channel = this.sound.play(this.lastPosition, 0, this.transform);
         this.channel.addEventListener("soundComplete", this.channelComplete);
-        this.playTimer = new Timer(250);
+        this.playTimer = new Timer(200);
         this.playTimer.run = this.sendTimeUpdate;
     }
     
@@ -102,10 +103,12 @@ class HTMLAudioElement extends HTMLMediaElement {
     
     // Called when the sound finishes playing to the end (by SoundChannel's 'soundComplete' event)
     private function channelComplete(e) {
+        //ExternalInterface.call("console.log", "channelComplete");
         this.playTimer.stop();
         this.channel.removeEventListener("soundComplete", this.channelComplete);
         this.channel.stop();
-        this.lastPosition = this.channel.position;
+        this.channel = null;
+        this.lastPosition = this.sound.length;
         ExternalInterface.call("HTMLAudioElement.__swfSounds["+this.fallbackId+"].__endedCallback");
     }
     
@@ -122,9 +125,6 @@ class HTMLAudioElement extends HTMLMediaElement {
     
     private function soundId3(e) {
         //ExternalInterface.call("console.log", e);
-        //if (this.sound.id3["TLEN"]) {
-            //var length : Float = Std.parseFloat(this.sound.id3.TLEN);
-        //}
     }
     
     private function soundIoError(e) {
@@ -225,6 +225,6 @@ class HTMLAudioElement extends HTMLMediaElement {
             "};",
             "HTMLAudioElement.__swf = f('embed') || f('object');",
         "})" ].join('') );
-        ExternalInterface.call("HTMLAudioElement.__swfLoaded");
+        ExternalInterface.call("HTMLAudioElement.__swfLoaded");            
     }
 }

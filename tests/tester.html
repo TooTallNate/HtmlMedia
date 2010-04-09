@@ -10,13 +10,9 @@
     <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/scriptaculous/1.8.3/slider.js"></script>
 
     <script type="text/javascript" src="../swfobject.js"></script>
-    <script type="text/javascript" src="../HtmlMedia.js"></script>
+    <script type="text/javascript" src="../HtmlMedia.js?path=..&onready=init"></script>
     <script type="text/javascript">
-        // The only optional configuration is to set the
-        // path to the location of the dependant files.
-        HTMLMediaElement.setPath("..");
-
-        document.observe("dom:loaded", function() {
+        function init() {
             ignore = false;
 			function timeChange(v) {
 			    if (!ignore) {
@@ -37,94 +33,87 @@
 				onSlide: volumeChange,
 				onChange: volumeChange
 			});
-
-
-            // The setTimeout is here because HtmlMedia extends the <audio>
-            // and <video> nodes during it own dom:loaded event, and therefore
-            // won't be ready until a few ms AFTER this dom:loaded function.
-            // This call to setTimeout ensures that we wait those few ms so
-            // that they are properly extended.
-            setTimeout(function() {
-                var a = $$("audio, video")[0],
-                    div = document.createElement("div"),
-                    clone = a.cloneNode(true),
-                    pre = document.createElement("pre"),
-                    link = document.createElement("a"),
-                    code = document.createElement("code");
-                clone.autoplay = false;
-                div.appendChild(clone);
-                code.appendChild(document.createTextNode(div.innerHTML));
-                link.href="javascript:void(0)";
-                link.appendChild(code);
-                pre.appendChild(link);
-                document.body.insertBefore(pre, a);
+            var a = $$("audio, video")[0],
+                div = document.createElement("div"),
+                clone = a.cloneNode(true),
+                pre = document.createElement("pre"),
+                link = document.createElement("a"),
+                code = document.createElement("code");
+            clone.autoplay = false;
+            div.appendChild(clone);
+            code.appendChild(document.createTextNode(div.innerHTML));
+            link.href="javascript:void(0)";
+            link.appendChild(code);
+            pre.appendChild(link);
+            document.body.insertBefore(pre, a);
                 
-                $("isNative").update(a.isNative);
-                $("src").update(a.src);
-                $("currentTime").update(a.currentTime);
-                $("duration").update(a.duration);
-                $("volume").update(a.volume);
+            $("isNative").update(a.isNative);
+            $("src").update(a.src);
+            $("currentTime").update(a.currentTime);
+            $("duration").update(a.duration);
+            $("volume").update(a.volume);
                 
-                lastTimeUpdate = NaN;
+            lastTimeUpdate = NaN;
                 
-                function logEvent(ev) {
+            function logEvent(ev) {
+                var textArea = $("event-log");
+                var val = '\n' + (new Date).getTime() + ': "' + ev.type + '" event fired';
+                //console.log(val);
+                textArea.value += val;
+                textArea.scrollTop = textArea.scrollHeight;
+            }
+                
+            ["loadstart", "progress", "suspend", "abort", "error", "emptied",
+            "stalled", "play", "pause", "loadedmetadata", "loadeddata",
+            "waiting", "playing", "canplay", "canplaythrough", "seeking",
+            "seeked", "timeupdate", "ended", "ratechange", "durationchange",
+            "volumechange", "fallback"].each(function(eventName) {
+                a.observe(eventName, logEvent);
+            });
+            a.observe("timeupdate", function() {
+                var t = (new Date).getTime();
+                if (!isNaN(lastTimeUpdate)) {
                     var textArea = $("event-log");
-                    var val = '\n' + (new Date).getTime() + ': "' + ev.type + '" event fired';
+                    var val = " ("+(t-lastTimeUpdate)+")";
                     //console.log(val);
                     textArea.value += val;
                     textArea.scrollTop = textArea.scrollHeight;
                 }
-                
-                ["loadstart", "progress", "suspend", "abort", "error", "emptied",
-                "stalled", "play", "pause", "loadedmetadata", "loadeddata",
-                "waiting", "playing", "canplay", "canplaythrough", "seeking",
-                "seeked", "timeupdate", "ended", "ratechange", "durationchange",
-                "volumechange", "fallback"].each(function(eventName) {
-                    a.observe(eventName, logEvent);
-                });
-                a.observe("timeupdate", function() {
-                    var t = (new Date).getTime();
-                    if (!isNaN(lastTimeUpdate)) {
-                        var textArea = $("event-log");
-                        var val = " ("+(t-lastTimeUpdate)+")";
+                lastTimeUpdate = t;
+            });
+            a.observe("durationchange", function() {
+                $('duration').update(this.duration);
+            });
+            a.observe("volumechange", function() {
+                $('volume').update(this.volume + (this.muted ? ', muted' : ''));
+            });
+            a.observe("progress", function(e) {
+                var s = '';
+                if (e.lengthComputable) {
+                    s=e.loaded/e.total * 100 + '%';
+                } else if (this.buffered.length > 0) {
+                    s=this.buffered.end(0)/this.duration * 100 + '%*';
+                } else {
+                    s='0% (buffered.length==0)';
+                }
+                $('loaded').update(s);
+            });
+            a.observe("timeupdate", function() {
+                if (timeSlider && this.duration) {
+                    ignore = true;
+                    var val = this.currentTime / this.duration;
+                    if (!isNaN(val)) {
                         //console.log(val);
-                        textArea.value += val;
-                        textArea.scrollTop = textArea.scrollHeight;
+                        timeSlider.setValue(val);
                     }
-                    lastTimeUpdate = t;
-                });
-                a.observe("durationchange", function() {
-                    $('duration').update(this.duration);
-                });
-                a.observe("volumechange", function() {
-                    $('volume').update(this.volume + (this.muted ? ', muted' : ''));
-                });
-                a.observe("progress", function(e) {
-                    var s = '';
-                    if (e.lengthComputable) {
-                        s=e.loaded/e.total * 100 + '%';
-                    } else if (this.buffered.length > 0) {
-                        s=this.buffered.end(0)/this.duration * 100 + '%*';
-                    } else {
-                        s='0% (buffered.length==0)';
-                    }
-                    $('loaded').update(s);
-                });
-                a.observe("timeupdate", function() {
-                    if (timeSlider && this.duration) {
-                        ignore = true;
-                        var val = this.currentTime / this.duration;
-                        if (!isNaN(val))
-                            timeSlider.setValue(val);
-                        ignore = false;
-                    }
-                    $('currentTime').update(this.currentTime);
-                });
-                a.observe("fallback", function() {
-                    $('isNative').update(this.isNative);
-                });
-            }, 10);
-        });
+                    ignore = false;
+                }
+                $('currentTime').update(this.currentTime);
+            });
+            a.observe("fallback", function() {
+                $('isNative').update(this.isNative);
+            });
+        }
     </script>
 </head>
 <body>

@@ -28,11 +28,13 @@ import flash.external.ExternalInterface;
 import flash.net.NetStream;
 import flash.net.NetConnection;
 import flash.media.Video;
+import flash.ui.ContextMenu;
+import flash.ui.ContextMenuItem;
 
 class HTMLVideoElement extends HTMLMediaElement {
     private var stream : NetStream;
     private var connection : NetConnection;
-    private var video: Video;
+    public var video: Video;
     
     public function new(fallbackId:Int, src:String, volume:Float, muted:Bool) {
         super(fallbackId, src, volume, muted);
@@ -50,10 +52,6 @@ class HTMLVideoElement extends HTMLMediaElement {
     public override function setVolume(vol: Float) {
         super.setVolume(vol);
         this.stream.soundTransform = this.transform;
-    }
-    
-    public function getVid() {
-        return this.video;
     }
     
     public function getCurrentImageData() {
@@ -87,21 +85,33 @@ class HTMLVideoElement extends HTMLMediaElement {
     }
     
     public function load(src:String) {
+        this.metadataSent = false;
         this.stream.close();
         this.stream.play(src);
+        this.stream.pause();
     }
     
     public function play() {
         this.stream.resume();
+        this.playTimer = new Timer(200);
+        this.playTimer.run = this.sendTimeUpdate;
+    }
+    
+    private function sendTimeUpdate() {
+        ExternalInterface.call("HTMLVideoElement.__vids["+this.fallbackId+"].__fireMediaEvent", "timeupdate");
     }
     
     public function pause() {
+        this.playTimer.stop();
         this.stream.pause();
     }
     
     // Event Listeners
     public function onMetaData(metadata) {
-        ExternalInterface.call("HTMLVideoElement.__vids["+this.fallbackId+"].__metadataCallback", metadata.duration, this.video.videoWidth, this.video.videoHeight);
+        if (!this.metadataSent) {
+            ExternalInterface.call("HTMLVideoElement.__vids["+this.fallbackId+"].__metadataCallback", metadata.duration, this.video.videoWidth, this.video.videoHeight);
+            this.metadataSent = true;
+        }
     }
     
     public function onPlayStatus(playStatus) {
@@ -109,28 +119,57 @@ class HTMLVideoElement extends HTMLMediaElement {
     }
 
     // Static Stuff
+    /**
+     * The single HTMLVideoElement that this SWF displays.
+     */
     public static var videoElement : HTMLVideoElement;
 
+    /**
+     * Instantiate a custom ContextMenu and set it to the
+     * current Stage. Should contain Play/Pause, Mute/Unmute,
+     * and a Full-Screen button.
+     */
+    public static function initContextMenu() {
+        var contextMenu : ContextMenu = new ContextMenu();
+        contextMenu.hideBuiltInItems();
+        var label : ContextMenuItem = new ContextMenuItem("HtmlMedia <video> Player");
+        contextMenu.customItems.push(label);
+        flash.Lib.current.contextMenu = contextMenu;
+    }
+
+    /**
+     * Every time the SWF is resized on the page (through CSS, etc.),
+     * we need to resize the video to maximize the stage, while still
+     * constraining porportions.
+     */
     public static function onResize(e:Event) {
-        ExternalInterface.call("console.log", "Stage resized: " + flash.Lib.current.stage.stageWidth + " x " + flash.Lib.current.stage.stageHeight);        
+        var s:Float = Math.min(flash.Lib.current.stage.stageWidth / videoElement.video.videoWidth, flash.Lib.current.stage.stageHeight / videoElement.video.videoHeight);
+        videoElement.video.width = s*videoElement.video.videoWidth;
+        videoElement.video.height = s*videoElement.video.videoHeight;
+        videoElement.video.x = (flash.Lib.current.stage.stageWidth / 2) - (videoElement.video.width / 2);
+        videoElement.video.y = (flash.Lib.current.stage.stageHeight / 2) - (videoElement.video.height / 2);
     }
 
     public static function main() {
         var flashvars : Dynamic<String> = flash.Lib.current.loaderInfo.parameters;
         videoElement = new HTMLVideoElement(Std.parseInt(flashvars.id), flashvars.src, Std.parseFloat(flashvars.volume), flashvars.muted.toLowerCase() == "true");
-        flash.Lib.current.addChild(videoElement.getVid());
+        flash.Lib.current.addChild(videoElement.video);
         
+        initContextMenu();
         
         flash.Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
         flash.Lib.current.stage.addEventListener(Event.RESIZE, onResize);
         
         ExternalInterface.addCallback("__load", videoElement.load);
+        ExternalInterface.addCallback("__play", videoElement.play);
+        ExternalInterface.addCallback("__pause", videoElement.pause);
+        ExternalInterface.addCallback("__setMuted", videoElement.setMuted);
+        ExternalInterface.addCallback("__setVolume", videoElement.setVolume);
         ExternalInterface.addCallback("__getCurrentTime", videoElement.getCurrentTime);
         ExternalInterface.addCallback("__setCurrentTime", videoElement.setCurrentTime);
         ExternalInterface.addCallback("__getImageData", videoElement.getCurrentImageData);
-        ExternalInterface.addCallback("__play", videoElement.play);
-        ExternalInterface.addCallback("__pause", videoElement.pause);
-        ExternalInterface.addCallback("__setVolume", videoElement.setVolume);
+        
+        // Everything on the Flash side in initialized, notifiy the page:
         ExternalInterface.call("HTMLVideoElement.__vids["+flashvars.id+"].__swfInit");
     }
 }

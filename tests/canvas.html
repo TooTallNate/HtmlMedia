@@ -18,10 +18,8 @@
     </style>
     <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/prototype/1.6.1.0/prototype.js"></script>
     <script type="text/javascript" src="../swfobject.js"></script>
-    <script type="text/javascript" src="../HtmlMedia.js"></script>
+    <script type="text/javascript" src="../HtmlMedia.js?path=.." onready="init();"></script>
     <script type="text/javascript">
-        // Set the path for `HtmlMedia` dependant files
-        HTMLMediaElement.setPath("..");
         
         function timerCallback() {
             if (video.paused || video.ended) {
@@ -48,7 +46,7 @@
             ctx2.putImageData(frame, 0, 0);
         }
         
-        document.observe("dom:loaded", function() {
+        function init() {
             video = $("video");  
             c1 = $("c1");  
             ctx1 = c1.getContext("2d");  
@@ -57,8 +55,7 @@
             video.observe("play", function() {  
                 timerCallback();  
             });  
-        });
-        
+        }
     </script>
 </head>
 <body>

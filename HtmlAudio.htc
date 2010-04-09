@@ -21,7 +21,8 @@
  * THE SOFTWARE.
  */
 <PUBLIC:COMPONENT NAME="HTMLAudioElement" LIGHTWEIGHT=true>
-
+    <PUBLIC:ATTACH EVENT="oncontentready" ONEVENT="__initialize()"/>
+    
     <PUBLIC:PROPERTY NAME="error" GET="errorGet" />
     <PUBLIC:PROPERTY NAME="src" GET="srcGet" PUT="srcSet" />
     <PUBLIC:PROPERTY NAME="currentSrc" GET="currentSrcGet" />
@@ -124,13 +125,21 @@
       	function mutedSet(v) {
   	        this.__mutedSet(v);
   	    }
+
+        function __initialize() {
+            if (this.al) {
+                this.al();
+            }
+  	    }
   	    
         // Dispatches an HTML5 media event at the element.
         function __fireMediaEvent(eventName)
         {
-            ev = createEventObject();
-            this.__extendEvent(ev, arguments);
-            events[eventName].fire(ev);
+            if (eventName in events) {
+                ev = createEventObject();
+                this.__extendEvent(ev, arguments);
+                events[eventName].fire(ev);
+            }
         }
     </SCRIPT>
 </PUBLIC:COMPONENT>
