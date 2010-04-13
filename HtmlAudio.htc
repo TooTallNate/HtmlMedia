@@ -135,11 +135,14 @@
         // Dispatches an HTML5 media event at the element.
         function __fireMediaEvent(eventName)
         {
-            if (eventName in events) {
-                ev = createEventObject();
-                this.__extendEvent(ev, arguments);
-                events[eventName].fire(ev);
-            }
+            var args = arguments;
+            setTimeout(function() {
+                if (eventName in events) {
+                    ev = createEventObject();
+                    element.__extendEvent(ev, args);
+                    events[eventName].fire(ev);
+                }
+            }, 0);
         }
     </SCRIPT>
 </PUBLIC:COMPONENT>

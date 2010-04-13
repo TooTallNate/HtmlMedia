@@ -144,14 +144,17 @@
 
     // Browsers other than IE will use the W3C events model to fire media events
     function fireMediaEvent(eventName) {
-        var ev = d.createEvent("Events"),
-            func = this["on"+eventName];
-        ev.initEvent(eventName, false, false);
-        this.__extendEvent(ev, arguments);
-        this.dispatchEvent(ev);
-        if (typeof func === 'function') {
-            func.call(this, ev);
-        }
+        var This = this, args = arguments;
+        setTimeout(function() {
+            var ev = d.createEvent("Events"),
+                func = This["on"+eventName];
+            ev.initEvent(eventName, false, false);
+            This.__extendEvent(ev, args);
+            This.dispatchEvent(ev);
+            if (typeof func === 'function') {
+                func.call(This, ev);
+            }
+        }, 0);
     }
 
     // Accepts a HTMLElement with a settable 'src' property. Returns 
@@ -581,14 +584,9 @@
             __checkError: function() {
                 if (this.error.code == 4) {
                     this.removeEventListener("error", this.__checkError, false);
-                    // We convert to a fallback after a setTimeout, to let the
-                    // native 'error' event finishes dispatching before firing
-                    // the 'fallback' event
-                    var This = this;
-                    setTimeout(function() {
-                        This.__fallback();
-                        This.load();
-                    }, 0);
+                    this.__fallback();
+                    this.__fireMediaEvent("fallback");
+                    this.load();
                 }
             }
         });
@@ -616,7 +614,6 @@
     function HTMLAudioElement() {
         HTMLMediaElement.apply(this, arguments);
         var e = arguments[0];
-        e.__fireMediaEvent("fallback");
         return e;
     }
     HTMLAudioElement.prototype = new HTMLMediaElement;
@@ -757,7 +754,7 @@
             // the time to process those calls
             command = w.HTMLAudioElement.__callQueue[i];
             console.log("calling '" + command.func + "' with " + command.args);
-            w.HTMLAudioElement.__swf["__"+command.func].apply(w.HTMLAudioElement.__swf, command.args);
+            w.HTMLAudioElement.__callFlash(command.func, command.args);
         }
     }
     // We want to augment both the native and our custom 'canPlayType'
@@ -808,7 +805,6 @@
         if (!element.style.display)
             element.style.display = "block";
 
-        element.__fireMediaEvent("fallback");
         return element;
     }
     HTMLVideoElement.prototype = new HTMLMediaElement;
@@ -848,8 +844,8 @@
         },
         
         __currentTimeGet: function() {
-            return this.__fallbackId != undefined ?
-                this.__callFlash("getCurrentTime") :
+            return this.__swf ?
+                this.__swf.__getCurrentTime() :
                 0;
         },
         __setCT: function(time) {
@@ -868,13 +864,23 @@
         __resourceFetchAlgorithm: function(url) {
             if (this.__fallbackId == undefined) {
 
-                if (!w.HTMLVideoElement.__swfVids) w.HTMLVideoElement.__vids = [];
+                if (!w.HTMLVideoElement.__swfVids) {
+                    // This is the first fallback <video> node on the page.
+                    w.HTMLVideoElement.__vids = [];
+                    // For <video> nodes, we need to listen for the "resize" event to
+                    // fire, so that we can reposition SWFs on top of the <video> node.
+                    if (w.addEventListener) {
+                        w.addEventListener("resize", onresize, false);
+                    } else {
+                        w.attachEvent("onresize", onresize);
+                    }
+                }
                 this.__fallbackId = w.HTMLVideoElement.__vids.length;
                 w.HTMLVideoElement.__vids.push(this);
 
 
                 var container = d.createElement("div"),
-                    id = "htmlmedia-"+ this.__fallbackId,
+                    id = "htmlmedia-"+this.__fallbackId,
                     flashvars = {
                         id: this.__fallbackId,
                         src: url,
@@ -882,11 +888,11 @@
                         muted: this.__muted
                     },
                     params = {
-                        wmode: "opaque",
+                        wmode: "transparent",
                         allowScriptAccess: "always"
                     },
                     attributes = {
-                        //style: "width:100px;height:100px;"
+                        style: "position:absolute;"
                     };
                 container.id = id;
                 d.body.appendChild(container);
@@ -906,14 +912,17 @@
         },
         
         __getCanvas: function() {
-            //var n1= new Date().getTime();
+            var n1= new Date().getTime();
             var data = this.__swf.__getImageData();
+            var n2= new Date().getTime();
+            console.log("Flash & EI time: " + (n2-n1));
             if (data) {
                 var canvas = d.createElement("canvas");
                 canvas.width = this.__videoWidth;
                 canvas.height = this.__videoHeight;
                 var ctx = canvas.getContext("2d");
-                var id = ctx.getImageData(0, 0, this.__videoWidth, this.__videoHeight);
+                //var id = ctx.getImageData(0, 0, this.__videoWidth, this.__videoHeight);
+                var id = ctx.createImageData(this.__videoWidth, this.__videoHeight); // Possibly better speed
                 var l = data.length;
                 var pixel;
                 for (var i=0; i<l; i++) {
@@ -924,8 +933,6 @@
                     id.data[i*4+3] = pixel >> 24 & 0xFF;// alpha
                 }
                 ctx.putImageData(id, 0, 0);
-                //var n2= new Date().getTime();
-                //console.log("time: " + (n2-n1));
                 return canvas;
             }
         },
@@ -935,8 +942,10 @@
             this.__videoWidth = width;
             this.__videoHeight = height;
             if (this.__width == -1 && this.__height == -1) {
-                this.style.width = this.__swf.style.width = width + "px";
-                this.style.height = this.__swf.style.height = height + "px";
+                this.style.width = width + "px";
+                this.style.height = height + "px";
+                this.__swf.width = width;
+                this.__swf.height = height;
             }
         },
         __swfInit: function() {
@@ -1014,6 +1023,22 @@
         }
     }
 
+    // Gets fired when the browser window resizes. This function must loop through
+    // the fallback <video> nodes on the page, and ensure that the SWF is placed on
+    // top of the node.
+    var lastW, lastH;
+    function onresize() {
+        var i = 0, l = w.HTMLVideoElement.__vids.length, wi = document.documentElement.clientWidth, he = document.documentElement.clientHeight, node;
+        // Prevent against an IE glitch firing the event too many times.
+        if (lastW === wi && lastH === he) return;
+        for (;i<l;i++) {
+            node = w.HTMLVideoElement.__vids[i];
+            node.__swf.style.top = node.offsetTop + "px";
+            node.__swf.style.left = node.offsetLeft + "px";
+        }
+        lastW = wi;
+        lastH = he;
+    }
 
 
 
@@ -1052,12 +1077,8 @@
         onready = PARAMS.onready;
     } else {
         onready = SCRIPT.getAttribute("onready");
-        if (onready) {
-            if (typeof onready !== "function") {
-                onready = new Function(onready);
-            }
-        } else {
-            onready = null;
+        if (typeof onready !== "function") {
+            onready = new Function(onready);
         }
     }
 
